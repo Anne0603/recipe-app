@@ -12,7 +12,8 @@
 
 import { isConfigComplete, getMissingFields } from "./config-check.js";
 import { initFirebase } from "./firebase-init.js";
-import { signInWithGoogle, signOutUser, resolveMember, watchAuthState, getCurrentMember } from "./auth.js";
+import { signInWithGoogle, signOutUser, resolveMember, watchAuthState, getCurrentMember, isAdmin } from "./auth.js";
+import { getAppSettings, saveAppSettings, isAppSettingsComplete } from "./app-settings.js";
 import { registerRoute, setBeforeEach, startRouter, navigate } from "./router.js";
 import { showToast } from "./utils.js";
 
@@ -89,6 +90,66 @@ function renderHomePage(container) {
 }
 
 /* ---------------------------------------------------------
+   服務設定頁面（#/app-config）— 管理員填 Cloudinary／天氣金鑰
+   ----------------------------------------------------------
+   存進 Firestore 共用設定，之後上傳圖片、天氣功能都從這裡讀。
+   目前用 isAdmin() 擋畫面，不是真正的安全防線（Firestore 規則
+   還是臨時版），正式規則要在「上線前」那一步一起補上。
+--------------------------------------------------------- */
+async function renderAppConfigPage(container) {
+  if (!isAdmin()) {
+    container.innerHTML = `<div class="placeholder-page"><p>這頁只有管理員能用</p></div>`;
+    return;
+  }
+
+  container.innerHTML = `<div class="loading-screen"><p>載入中…</p></div>`;
+  const settings = await getAppSettings({ forceRefresh: true });
+
+  container.innerHTML = `
+    <div class="setup-wizard">
+      <h1>服務設定</h1>
+      <p class="setup-intro">
+        這裡填的值全部人共用一份，存在 Firestore，換金鑰不用碰程式碼、不用重新部署。
+      </p>
+      <div class="setup-section">
+        <h2>Cloudinary（食譜圖片）</h2>
+        <div class="field">
+          <label for="field-cloudinaryCloudName">Cloud name</label>
+          <input type="text" id="field-cloudinaryCloudName" value="${settings.cloudinaryCloudName}" />
+        </div>
+        <div class="field">
+          <label for="field-cloudinaryUploadPreset">Upload preset 名稱</label>
+          <input type="text" id="field-cloudinaryUploadPreset" value="${settings.cloudinaryUploadPreset}" />
+        </div>
+      </div>
+      <div class="setup-section">
+        <h2>OpenWeatherMap（天氣）</h2>
+        <div class="field">
+          <label for="field-openWeatherApiKey">API key</label>
+          <input type="text" id="field-openWeatherApiKey" value="${settings.openWeatherApiKey}" />
+        </div>
+      </div>
+      <button id="app-config-save-btn" class="btn btn-primary">儲存</button>
+    </div>
+  `;
+
+  document.getElementById("app-config-save-btn").addEventListener("click", async () => {
+    const updates = {
+      cloudinaryCloudName: document.getElementById("field-cloudinaryCloudName").value.trim(),
+      cloudinaryUploadPreset: document.getElementById("field-cloudinaryUploadPreset").value.trim(),
+      openWeatherApiKey: document.getElementById("field-openWeatherApiKey").value.trim(),
+    };
+    try {
+      const saved = await saveAppSettings(updates);
+      showToast(isAppSettingsComplete(saved) ? "已儲存" : "已儲存（還有欄位是空的）");
+    } catch (err) {
+      console.error(err);
+      showToast("儲存失敗，請再試一次");
+    }
+  });
+}
+
+/* ---------------------------------------------------------
    其他導覽頁面：骨架階段先放「開發中」佔位
 --------------------------------------------------------- */
 function renderPlaceholderPage(title) {
@@ -121,6 +182,7 @@ registerRoute("/diary", renderPlaceholderPage("料理日記"));
 registerRoute("/expenses", renderPlaceholderPage("花費記錄"));
 registerRoute("/friends", renderPlaceholderPage("朋友"));
 registerRoute("/settings", renderPlaceholderPage("設定"));
+registerRoute("/app-config", renderAppConfigPage);
 
 // 換頁前檢查：設定沒填齊 → 強制留在 /setup；沒登入 → 強制留在 /login
 setBeforeEach((path) => {
