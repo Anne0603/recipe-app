@@ -1,0 +1,76 @@
+/* ==========================================================
+   components.css — 個別功能元件樣式
+   骨架階段只放目前用得到的（設定精靈、登入頁）
+   之後每個功能做 mockup 確認時，样式再補進這裡對應區塊
+   ========================================================== */
+
+/* ---------- 設定精靈 ---------- */
+.setup-wizard {
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.setup-wizard h1 {
+  font-size: 20px;
+  margin-bottom: var(--space-2);
+}
+
+.setup-wizard .setup-intro {
+  color: var(--color-text-muted);
+  font-size: 14px;
+  margin-bottom: var(--space-4);
+}
+
+.setup-section {
+  margin-bottom: var(--space-5);
+}
+
+.setup-section h2 {
+  font-size: 15px;
+  margin-bottom: var(--space-2);
+  color: var(--color-text);
+}
+
+.setup-section .hint {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin-top: -4px;
+  margin-bottom: var(--space-2);
+}
+
+.setup-wizard code {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 13px;
+}
+
+.setup-wizard ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+/* ---------- 登入頁 ---------- */
+.login-page {
+  max-width: 360px;
+  margin: 10vh auto 0;
+  text-align: center;
+}
+
+.login-page h1 {
+  font-size: 22px;
+  margin-bottom: var(--space-2);
+}
+
+.login-page p {
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-4);
+}
+
+/* ---------- 開發中頁面佔位 ---------- */
+.placeholder-page {
+  text-align: center;
+  color: var(--color-text-muted);
+  padding: var(--space-5) 0;
+}

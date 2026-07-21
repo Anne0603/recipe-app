@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <meta name="theme-color" content="#f2ede4" />
+  <title>今天吃什麼？</title>
+
+  <!-- 加到手機主畫面用的圖示，之後放進 assets/icons -->
+  <link rel="icon" href="assets/icons/favicon.png" />
+  <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png" />
+
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/layout.css" />
+  <link rel="stylesheet" href="css/components.css" />
+</head>
+<body>
+
+  <!-- 頂部導覽列：登入前隱藏，登入後由 auth.js 顯示 -->
+  <header id="app-header" class="app-header hidden">
+    <div class="header-inner">
+      <a href="#/home" class="brand">今天吃什麼？</a>
+      <nav class="main-nav" id="main-nav">
+        <a href="#/home">首頁</a>
+        <a href="#/recipes">食譜</a>
+        <a href="#/diary">料理日記</a>
+        <a href="#/expenses">花費記錄</a>
+        <a href="#/friends">朋友</a>
+        <a href="#/settings">設定</a>
+      </nav>
+      <button id="logout-btn" class="btn btn-ghost">登出</button>
+    </div>
+  </header>
+
+  <!-- 所有頁面內容由 router.js 動態換掉這個容器 -->
+  <main id="app" class="app-main">
+    <div class="loading-screen">
+      <p>載入中…</p>
+    </div>
+  </main>
+
+  <!-- 全站共用：確認刪除等提示框，由 utils.js 控制顯示 -->
+  <div id="confirm-dialog" class="dialog-overlay hidden">
+    <div class="dialog-box">
+      <p id="confirm-dialog-message"></p>
+      <div class="dialog-actions">
+        <button id="confirm-dialog-cancel" class="btn btn-ghost">取消</button>
+        <button id="confirm-dialog-ok" class="btn btn-danger">確定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 全站共用：輕量提示訊息（toast） -->
+  <div id="toast" class="toast hidden"></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

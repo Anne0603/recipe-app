@@ -1,0 +1,6 @@
+.DS_Store
+*.log
+node_modules/
+
+# 金鑰檔案，不進 git；只有 config.example.js（空範本）會進 git
+js/config.js
