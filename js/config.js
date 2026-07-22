@@ -9,10 +9,10 @@
    ========================================================== */
 
 export const CONFIG = {
-  firebaseApiKey: "",
-  firebaseAuthDomain: "",
-  firebaseProjectId: "",
-  firebaseStorageBucket: "",
-  firebaseMessagingSenderId: "",
-  firebaseAppId: "",
+  firebaseApiKey: "AIzaSyG14tG9ZRx1ptaMDpT2h8v4KtTZapvDpKU",
+  firebaseAuthDomain: "recipe-app-39d48.firebaseapp.com",
+  firebaseProjectId: "recipe-app-39d48",
+  firebaseStorageBucket: "recipe-app-39d48.firebasestorage.app",
+  firebaseMessagingSenderId: "789944508688",
+  firebaseAppId: "1:789944508688:web:ade8c60b449df3a039c595",
 };
