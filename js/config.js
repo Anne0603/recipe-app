@@ -9,7 +9,7 @@
    ========================================================== */
 
 export const CONFIG = {
-  firebaseApiKey: "AIzaSyG14tG9ZRx1ptaMDpT2h8v4KtTZapvDpKU",
+  firebaseApiKey: "AIzaSyCi4Gt9ZRx1ptaMDpT2h8v4KtTZapvDpKU",
   firebaseAuthDomain: "recipe-app-39d48.firebaseapp.com",
   firebaseProjectId: "recipe-app-39d48",
   firebaseStorageBucket: "recipe-app-39d48.firebasestorage.app",
