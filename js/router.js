@@ -53,9 +53,9 @@ function render() {
     notFoundHandler(container);
   }
 
-  // 更新導覽列的 active 狀態
-  document.querySelectorAll("#main-nav a").forEach((a) => {
-    a.classList.toggle("active", a.getAttribute("href") === `#${path}`);
+  // 更新底部導覽列的 active 狀態
+  document.querySelectorAll("#tabbar .tab").forEach((a) => {
+    a.classList.toggle("active", a.dataset.path === path);
   });
 }
 

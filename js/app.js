@@ -75,18 +75,80 @@ function renderLoginPage(container) {
 }
 
 /* ---------------------------------------------------------
-   首頁（#/home）— 骨架階段先放最基本內容
-   正式內容（天氣區塊、抽籤大按鈕、朋友新分享、當季食材）
-   等全部功能討論完、mockup 確認後再補上
+   首頁（#/home）
+   ----------------------------------------------------------
+   視覺依 mockup 確認版本製作。熱門食譜、朋友新分享、本週挑戰
+   這幾塊背後的功能都還沒做，先用空狀態文字，不用假資料冒充。
+   天氣、抽籤按鈕也是先有畫面，實際邏輯等對應功能開工時才接上。
 --------------------------------------------------------- */
 function renderHomePage(container) {
   const member = getCurrentMember();
+  const hour = new Date().getHours();
+  const greeting = hour < 11 ? "早安" : hour < 18 ? "午安" : "晚安";
+  const name = member?.displayName || "朋友";
+
+  const weekday = ["日", "一", "二", "三", "四", "五", "六"][new Date().getDay()];
+  const dateLabel = `${new Date().getMonth() + 1} 月 ${new Date().getDate()} 日星期${weekday}`;
+
   container.innerHTML = `
-    <div class="placeholder-page">
-      <p>歡迎回來，${member?.displayName || "朋友"}！</p>
-      <p>首頁的完整內容（天氣、抽籤、朋友新分享、當季食材）還在等各功能討論完後才會補上。</p>
+    <div class="home-header">
+      <div class="home-header-top">
+        <div class="hello">${greeting}，<span>${name}</span></div>
+        <div class="streak-badge">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M12 2c1 3-2 4-2 7a3 3 0 0 0 6 0c0-1-.5-2-1-2.5.8 1.5 2 2.8 2 5.5a6 6 0 1 1-12 0c0-4 2-5 3-7 .3 1 1 2 2 2-.5-2-1-3.5 2-5Z"/></svg>
+          連續登入功能開發中
+        </div>
+      </div>
+      <div class="weather-line">
+        <svg class="icon" viewBox="0 0 24 24"><circle cx="9" cy="9" r="4"/><path d="M9 2v1.4M9 14.6V16M2 9h1.4M14.6 9H16M4 4l1 1M13 13l1 1M14 4l-1 1M5 13l-1 1"/></svg>
+        天氣功能開發中 <span class="weather-dot">・</span> <span class="weather-date">${dateLabel}</span>
+      </div>
+    </div>
+
+    <div class="lottery-wrap">
+      <button id="lottery-btn" class="lottery-card">
+        <svg class="icon" viewBox="0 0 24 24">
+          <path d="M4 12a8 8 0 0 1 16 0"/>
+          <path d="M2 12h20"/>
+          <path d="M6 12c0 3 1 6 2 8M18 12c0 3-1 6-2 8M12 12v8"/>
+          <circle cx="12" cy="6" r="1.4" fill="currentColor" stroke="none"/>
+        </svg>
+        <div class="lottery-body">
+          <div class="lottery-eyebrow">還沒想好嗎</div>
+          <div class="lottery-title">今天吃什麼？</div>
+        </div>
+        <div class="lottery-cta">抽籤</div>
+      </button>
+    </div>
+
+    <div class="home-section">
+      <div class="home-section-head">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4Z"/><path d="M7 6H4a3 3 0 0 0 3 5M17 6h3a3 3 0 0 1-3 5"/></svg>
+        <h2>熱門食譜</h2>
+      </div>
+      <div class="empty-state">還沒有食譜資料，等「食譜」功能上線後這裡會顯示大家最常收藏的菜色。</div>
+    </div>
+
+    <div class="home-section">
+      <div class="home-section-head">
+        <svg class="icon" viewBox="0 0 24 24"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2 20c0-3.3 2.7-6 6-6s6 2.7 6 6M14 20c0-2.5 1.8-4.5 4-4.5s4 2 4 4.5"/></svg>
+        <h2>朋友新分享</h2>
+      </div>
+      <div class="empty-state">還沒有分享資料，等食譜功能上線、朋友發布新食譜後會顯示在這裡。</div>
+    </div>
+
+    <div class="home-section">
+      <div class="home-section-head">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M5 3v18M5 4h11l-2 3.5L16 11H5"/></svg>
+        <h2>本週挑戰</h2>
+      </div>
+      <div class="empty-state">還沒有挑戰資料，等「挑戰系統」規格確定、管理員發布挑戰後會顯示在這裡。</div>
     </div>
   `;
+
+  document.getElementById("lottery-btn").addEventListener("click", () => {
+    showToast("抽籤功能還沒實作，等「抽籤」功能開工時再一起討論規格");
+  });
 }
 
 /* ---------------------------------------------------------
@@ -150,6 +212,33 @@ async function renderAppConfigPage(container) {
 }
 
 /* ---------------------------------------------------------
+   設定頁（#/settings）
+   ----------------------------------------------------------
+   目前只放登出、管理員專屬的服務設定入口。
+   個人化設定（通知開關、Discord Webhook 等）之後功能討論到
+   再補進來。
+--------------------------------------------------------- */
+function renderSettingsPage(container) {
+  const member = getCurrentMember();
+  container.innerHTML = `
+    <div class="setup-wizard">
+      <h1>設定</h1>
+      <p class="setup-intro">登入身分：${member?.displayName || ""}（${isAdmin() ? "管理員" : "一般成員"}）</p>
+      ${isAdmin() ? '<div class="setup-section"><a href="#/app-config" class="btn btn-ghost">服務設定（Cloudinary／天氣金鑰）</a></div>' : ""}
+      <div class="setup-section">
+        <button id="settings-logout-btn" class="btn btn-danger">登出</button>
+      </div>
+    </div>
+  `;
+
+  document.getElementById("settings-logout-btn").addEventListener("click", async () => {
+    await signOutUser();
+    setTabbarVisible(false);
+    navigate("/login");
+  });
+}
+
+/* ---------------------------------------------------------
    其他導覽頁面：骨架階段先放「開發中」佔位
 --------------------------------------------------------- */
 function renderPlaceholderPage(title) {
@@ -159,17 +248,11 @@ function renderPlaceholderPage(title) {
 }
 
 /* ---------------------------------------------------------
-   導覽列的顯示/隱藏、登出按鈕
+   底部導覽列的顯示/隱藏
 --------------------------------------------------------- */
-function setHeaderVisible(visible) {
-  document.getElementById("app-header").classList.toggle("hidden", !visible);
+function setTabbarVisible(visible) {
+  document.getElementById("tabbar").classList.toggle("hidden", !visible);
 }
-
-document.getElementById("logout-btn").addEventListener("click", async () => {
-  await signOutUser();
-  setHeaderVisible(false);
-  navigate("/login");
-});
 
 /* ---------------------------------------------------------
    路由註冊
@@ -181,7 +264,7 @@ registerRoute("/recipes", renderPlaceholderPage("食譜"));
 registerRoute("/diary", renderPlaceholderPage("料理日記"));
 registerRoute("/expenses", renderPlaceholderPage("花費記錄"));
 registerRoute("/friends", renderPlaceholderPage("朋友"));
-registerRoute("/settings", renderPlaceholderPage("設定"));
+registerRoute("/settings", renderSettingsPage);
 registerRoute("/app-config", renderAppConfigPage);
 
 // 換頁前檢查：設定沒填齊 → 強制留在 /setup；沒登入 → 強制留在 /login
@@ -212,7 +295,7 @@ setBeforeEach((path) => {
 --------------------------------------------------------- */
 async function boot() {
   if (!isConfigComplete()) {
-    setHeaderVisible(false);
+    setTabbarVisible(false);
     startRouter();
     navigate("/setup");
     return;
@@ -223,7 +306,7 @@ async function boot() {
   watchAuthState(async (firebaseUser) => {
     if (!firebaseUser) {
       isLoggedIn = false;
-      setHeaderVisible(false);
+      setTabbarVisible(false);
       navigate("/login");
       return;
     }
@@ -232,19 +315,19 @@ async function boot() {
 
     if (result === "ok") {
       isLoggedIn = true;
-      setHeaderVisible(true);
+      setTabbarVisible(true);
       if (window.location.hash === "#/login" || !window.location.hash) {
         navigate("/home");
       }
     } else if (result === "not_whitelisted") {
       isLoggedIn = false;
-      setHeaderVisible(false);
+      setTabbarVisible(false);
       await signOutUser();
       showToast("這個帳號還不在成員名單裡，請聯絡管理員");
       navigate("/login");
     } else if (result === "disabled") {
       isLoggedIn = false;
-      setHeaderVisible(false);
+      setTabbarVisible(false);
       await signOutUser();
       showToast("帳號已停用，等待管理員審核啟用");
       navigate("/login");

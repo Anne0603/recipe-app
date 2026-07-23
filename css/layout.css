@@ -1,62 +1,68 @@
 /* ==========================================================
-   layout.css — 頁首、導覽列、整體版面排版
+   layout.css — 整體版面排版、底部導覽列
    ========================================================== */
 
-.app-header {
-  background: var(--color-surface);
-  border-bottom: 1px solid var(--color-border);
-  position: sticky;
-  top: 0;
-  z-index: 100;
+html, body {
+  background: var(--color-bg);
 }
 
-.header-inner {
-  max-width: 960px;
-  margin: 0 auto;
-  padding: var(--space-2) var(--space-3);
+/* App 整體用 flex 直向排列，讓底部導覽列能貼在最下面 */
+body {
   display: flex;
-  align-items: center;
-  gap: var(--space-4);
-}
-
-.brand {
-  font-weight: 700;
-  font-size: 18px;
-  color: var(--color-text);
-  white-space: nowrap;
-}
-
-.main-nav {
-  display: flex;
-  gap: var(--space-3);
-  flex: 1;
-  overflow-x: auto;
-}
-
-.main-nav a {
-  color: var(--color-text-muted);
-  font-size: 14px;
-  white-space: nowrap;
-}
-
-.main-nav a:hover {
-  color: var(--color-primary);
+  flex-direction: column;
+  min-height: 100vh;
 }
 
 .app-main {
-  max-width: 960px;
+  flex: 1;
+  width: 100%;
+  max-width: 480px;
   margin: 0 auto;
-  padding: var(--space-4) var(--space-3);
-  min-height: 70vh;
+  padding-bottom: 90px; /* 留給底部導覽列的空間，避免內容被擋住 */
 }
 
-/* 手機版：導覽列縮成可橫向滑動的列，先求堪用，正式視覺留給 mockup 階段 */
-@media (max-width: 600px) {
-  .header-inner {
-    flex-wrap: wrap;
-  }
-  .main-nav {
-    order: 3;
-    width: 100%;
-  }
+/* ---------- 底部導覽列 ---------- */
+.tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 100;
+  max-width: 480px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+  padding: 11px 6px 14px;
+}
+
+.tab {
+  flex: 1;
+  text-align: center;
+  font-size: 10.5px;
+  color: var(--color-text-muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 2px 0;
+}
+
+.tab .tab-icon {
+  width: 21px;
+  height: 21px;
+}
+
+.tab.active {
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+@media (min-width: 480px) {
+  .tabbar { border-left: 1px solid var(--color-border); border-right: 1px solid var(--color-border); }
 }

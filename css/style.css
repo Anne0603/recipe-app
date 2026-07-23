@@ -4,20 +4,30 @@
    ========================================================== */
 
 :root {
-  /* 色彩先用中性暫定值，mockup 確認風格後再換 */
   --color-bg: #faf8f5;
   --color-surface: #ffffff;
-  --color-text: #2b2b2b;
-  --color-text-muted: #6b6b6b;
+  --color-text: #3a362f;
+  --color-text-muted: #94897a;
   --color-primary: #d9773f;
+  --color-primary-bg: #fbeee4;
   --color-primary-dark: #b85f2e;
-  --color-border: #e5e0d8;
+  --color-border: #ece6da;
   --color-danger: #c94f4f;
   --color-success: #4a8f5c;
+
+  --color-butter: #c99a3b;
+  --color-butter-bg: #fbf3e1;
+  --color-berry: #b15c6e;
+  --color-berry-bg: #f7eaec;
+  --color-sky: #5c87a6;
+  --color-sky-bg: #e9f1f6;
+  --color-sage: #6e8b63;
+  --color-sage-bg: #edf2e8;
 
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 16px;
+  --radius-xl: 18px;
 
   --space-1: 4px;
   --space-2: 8px;
@@ -25,7 +35,8 @@
   --space-4: 24px;
   --space-5: 32px;
 
-  --font-body: -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", sans-serif;
+  --font-body: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif;
+  --font-display: 'Noto Serif TC', serif;
 }
 
 * {
@@ -43,6 +54,16 @@ body {
   background: var(--color-bg);
   color: var(--color-text);
   line-height: 1.5;
+}
+
+/* 手繪 SVG 圖示共用樣式：全部用線條風格、繼承文字顏色，不用表情符號 */
+.icon {
+  stroke: currentColor;
+  stroke-width: 1.8;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  display: block;
 }
 
 .hidden {
@@ -151,7 +172,7 @@ a {
 /* ---------- Toast 提示 ---------- */
 .toast {
   position: fixed;
-  bottom: var(--space-4);
+  bottom: 78px;
   left: 50%;
   transform: translateX(-50%);
   background: var(--color-text);
@@ -160,6 +181,8 @@ a {
   border-radius: var(--radius-sm);
   font-size: 14px;
   z-index: 1000;
+  max-width: 88vw;
+  text-align: center;
 }
 
 .loading-screen {

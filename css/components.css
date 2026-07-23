@@ -74,3 +74,206 @@
   color: var(--color-text-muted);
   padding: var(--space-5) 0;
 }
+
+/* ==========================================================
+   首頁
+   ========================================================== */
+
+/* ---------- 頭部：打招呼／連續登入／天氣／提示語 ---------- */
+.home-header {
+  padding: 22px 20px 18px;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 18px;
+}
+
+.home-header-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.home-header-top .hello {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 20px;
+}
+
+.home-header-top .hello span {
+  color: var(--color-primary);
+}
+
+.streak-badge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--color-butter-bg);
+  color: var(--color-butter);
+  border-radius: 999px;
+  padding: 5px 12px 5px 10px;
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.streak-badge .icon { width: 14px; height: 14px; }
+
+.weather-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 12.5px;
+  color: var(--color-sky);
+  font-weight: 700;
+}
+
+.weather-line .icon { width: 16px; height: 16px; }
+.weather-line .weather-date { color: var(--color-text-muted); font-weight: 400; }
+.weather-line .weather-dot { color: var(--color-border); }
+
+.weather-quote {
+  margin-top: 8px;
+  font-size: 13.5px;
+  color: #5c5648;
+  line-height: 1.6;
+}
+
+/* ---------- 抽籤卡 ---------- */
+.lottery-wrap { margin: 0 16px 24px; }
+
+.lottery-card {
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-primary-bg);
+  border-radius: var(--radius-xl);
+  padding: 18px 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.lottery-card .icon { width: 38px; height: 38px; color: var(--color-primary); flex-shrink: 0; }
+.lottery-body { flex: 1; }
+.lottery-eyebrow { font-size: 11.5px; letter-spacing: 1.5px; color: var(--color-text-muted); font-weight: 500; }
+.lottery-title { font-family: var(--font-display); font-weight: 900; font-size: 20px; margin-top: 2px; color: var(--color-text); }
+.lottery-cta { background: var(--color-primary); color: #fff; font-weight: 700; font-size: 13px; padding: 9px 16px; border-radius: 999px; white-space: nowrap; }
+
+/* ---------- 區塊共用 ---------- */
+.home-section { margin: 0 0 22px; }
+
+.home-section-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 10px;
+  padding: 0 19px;
+}
+
+.home-section-head .icon { width: 17px; height: 17px; color: var(--color-text-muted); flex-shrink: 0; }
+.home-section-head h2 { font-family: var(--font-display); font-size: 15px; font-weight: 700; margin: 0; flex: 1; }
+.home-section-head .more { font-size: 12px; color: var(--color-text-muted); background: none; border: none; font-family: inherit; cursor: pointer; }
+
+/* ---------- 空狀態（功能還沒做完時顯示） ---------- */
+.empty-state {
+  margin: 0 16px;
+  background: var(--color-surface);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* ---------- 熱門食譜排行清單 ---------- */
+.rank-list {
+  margin: 0 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.rank-item { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
+.rank-item + .rank-item { border-top: 1px solid var(--color-border); }
+.rank-no {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 16px;
+  color: var(--color-primary-bg);
+  -webkit-text-stroke: 1.3px var(--color-primary);
+  width: 20px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.rank-thumb {
+  width: 40px; height: 40px; border-radius: 10px;
+  background: var(--color-primary-bg);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  overflow: hidden;
+}
+.rank-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.rank-thumb .icon { width: 20px; height: 20px; color: var(--color-primary); }
+.rank-info { flex: 1; min-width: 0; }
+.rank-name { font-size: 13.5px; font-weight: 700; }
+.rank-meta { font-size: 11px; color: var(--color-text-muted); margin-top: 2px; display: flex; align-items: center; gap: 4px; }
+.rank-meta .icon { width: 11px; height: 11px; }
+
+/* ---------- 橫向滑動卡（朋友新分享 共用樣式） ---------- */
+.scroll-row-wrap { position: relative; }
+.scroll-row {
+  display: flex; gap: 10px; overflow-x: auto; padding: 0 16px 4px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scroll-row::-webkit-scrollbar { display: none; }
+.scroll-fade-edge {
+  position: absolute; right: 0; top: 0; bottom: 4px; width: 28px;
+  background: linear-gradient(to right, transparent, var(--color-bg));
+  pointer-events: none;
+}
+
+.share-card {
+  flex: 0 0 auto; width: 148px;
+  background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 14px; padding: 11px;
+  scroll-snap-align: start;
+}
+.share-thumb {
+  position: relative; height: 74px; border-radius: 9px; margin-bottom: 8px;
+  background: var(--color-berry-bg);
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+.share-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.share-thumb .icon { width: 26px; height: 26px; color: var(--color-berry); }
+.share-avatar {
+  position: absolute; left: 7px; bottom: -7px;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--color-surface); border: 2px solid var(--color-surface);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10.5px; font-weight: 700; color: var(--color-text);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+}
+.share-name { font-size: 13px; font-weight: 700; line-height: 1.3; margin-top: 2px; }
+.share-meta { display: flex; align-items: center; justify-content: space-between; margin-top: 4px; }
+.share-by { font-size: 11px; color: var(--color-text-muted); }
+.share-like { font-size: 11px; color: var(--color-primary); font-weight: 700; display: flex; align-items: center; gap: 3px; }
+.share-like .icon { width: 11px; height: 11px; }
+
+/* ---------- 本週挑戰預告 ---------- */
+.challenge-card {
+  margin: 0 16px; background: var(--color-berry-bg); border-radius: var(--radius-lg);
+  padding: 15px 16px; display: flex; align-items: center; gap: 12px;
+}
+.challenge-card .icon { width: 30px; height: 30px; color: var(--color-berry); flex-shrink: 0; }
+.challenge-body { flex: 1; }
+.challenge-title { font-size: 13.5px; font-weight: 700; }
+.challenge-status { font-size: 11px; color: var(--color-berry); font-weight: 700; white-space: nowrap; }
