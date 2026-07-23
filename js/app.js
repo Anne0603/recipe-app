@@ -108,16 +108,18 @@ function renderHomePage(container) {
     <div class="lottery-wrap">
       <button id="lottery-btn" class="lottery-card">
         <svg class="icon" viewBox="0 0 24 24">
-          <path d="M4 12a8 8 0 0 1 16 0"/>
-          <path d="M2 12h20"/>
-          <path d="M6 12c0 3 1 6 2 8M18 12c0 3-1 6-2 8M12 12v8"/>
-          <circle cx="12" cy="6" r="1.4" fill="currentColor" stroke="none"/>
+          <rect x="4" y="4" width="16" height="16" rx="4"/>
+          <circle cx="8.5" cy="8.5" r="1.1" fill="currentColor" stroke="none"/>
+          <circle cx="15.5" cy="8.5" r="1.1" fill="currentColor" stroke="none"/>
+          <circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none"/>
+          <circle cx="8.5" cy="15.5" r="1.1" fill="currentColor" stroke="none"/>
+          <circle cx="15.5" cy="15.5" r="1.1" fill="currentColor" stroke="none"/>
         </svg>
         <div class="lottery-body">
           <div class="lottery-eyebrow">還沒想好嗎</div>
           <div class="lottery-title">今天吃什麼？</div>
         </div>
-        <div class="lottery-cta">抽籤</div>
+        <svg class="lottery-arrow icon" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
       </button>
     </div>
 
