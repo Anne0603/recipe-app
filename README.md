@@ -34,3 +34,4 @@
 
 ## 檔案結構
 見合作原則討論時確認的拆檔規劃：`index.html` / `css/`（style、layout、components）/ `js/`（依功能拆模組）。
+
