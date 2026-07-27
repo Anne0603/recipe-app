@@ -445,6 +445,8 @@
 .lottery-result-name { font-family: var(--font-display); font-size: 18px; font-weight: 900; }
 .lottery-result-tags { display: flex; gap: 5px; justify-content: center; margin-top: 8px; flex-wrap: wrap; }
 .lottery-result-tags span { font-size: 11px; color: var(--color-sage); background: var(--color-sage-bg); padding: 3px 9px; border-radius: 999px; font-weight: 700; }
+.lottery-result-meta { display: flex; gap: 14px; justify-content: center; margin-top: 10px; font-size: 12px; color: var(--color-text-muted); }
+.lottery-result-meta .icon-sm { display: inline-block; vertical-align: -3px; margin-right: 4px; }
 .lottery-result-actions { display: flex; gap: 8px; margin-top: 18px; }
 .lottery-result-actions .btn { flex: 1; padding: 11px; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 .icon-sm { width: 15px; height: 15px; }

@@ -17,6 +17,8 @@ const ICON_NO_PHOTO = '<svg class="icon" viewBox="0 0 24 24"><rect x="3" y="5" w
 const ICON_DICE = '<svg class="icon" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><circle cx="8.5" cy="8.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="15.5" cy="8.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none"/><circle cx="8.5" cy="15.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="15.5" cy="15.5" r="1.1" fill="currentColor" stroke="none"/></svg>';
 const ICON_DICE_SM = '<svg class="icon icon-sm" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><circle cx="8.5" cy="8.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="15.5" cy="8.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none"/><circle cx="8.5" cy="15.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="15.5" cy="15.5" r="1.1" fill="currentColor" stroke="none"/></svg>';
 const ICON_CHECK = '<svg class="icon icon-sm" viewBox="0 0 24 24" stroke-width="2.4"><path d="M5 13l4 4L19 7"/></svg>';
+const ICON_PERSON_SM = '<svg class="icon icon-sm" viewBox="0 0 24 24"><circle cx="8" cy="9" r="3"/><path d="M2 20c0-3 2.5-5.5 6-5.5s6 2.5 6 5.5"/></svg>';
+const ICON_CLOCK_SM = '<svg class="icon icon-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
 
 const SOURCE_OPTIONS = [
   { value: "all", label: "全部" },
@@ -99,6 +101,10 @@ function showResultCard(candidates, filters) {
         </div>
         <div class="lottery-result-name">${current.name}</div>
         <div class="lottery-result-tags">${tags}</div>
+        <div class="lottery-result-meta">
+          ${current.servings != null ? `${ICON_PERSON_SM}${current.servings} 人份` : ""}
+          ${current.cookTimeMinutes != null ? `${ICON_CLOCK_SM}${current.cookTimeMinutes} 分鐘` : ""}
+        </div>
         <div class="lottery-result-actions">
           <button type="button" id="lottery-redraw" class="btn btn-ghost">${ICON_DICE_SM}再抽一次</button>
           <button type="button" id="lottery-confirm" class="btn btn-primary">${ICON_CHECK}就決定是你了</button>
