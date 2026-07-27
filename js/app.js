@@ -194,11 +194,8 @@ async function loadHomeRecipeSections() {
       : `<div class="empty-state">還沒有公開食譜，等朋友發布新食譜後會顯示在這裡。</div>`;
   } catch (err) {
     console.error(err);
-    const hint = err?.message?.includes("index")
-      ? "（Console 應該有出現建立索引的連結，點開自動建立、等 1-2 分鐘再重新整理即可）"
-      : "";
-    hotEl.innerHTML = `<div class="empty-state">載入失敗，請稍後再試。${hint}</div>`;
-    recentEl.innerHTML = `<div class="empty-state">載入失敗，請稍後再試。${hint}</div>`;
+    hotEl.innerHTML = `<div class="empty-state">載入失敗，請稍後再試。</div>`;
+    recentEl.innerHTML = `<div class="empty-state">載入失敗，請稍後再試。</div>`;
   }
 }
 

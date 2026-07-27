@@ -29,8 +29,6 @@ import {
   getDocs,
   query,
   where,
-  orderBy,
-  limit,
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getDbInstance } from "./firebase-init.js";
@@ -92,6 +90,27 @@ export async function setRecipeVisibility(recipeId, isPublic) {
   return updateRecipe(recipeId, { isPublic });
 }
 
+/** 時間工具：Firestore Timestamp 轉成毫秒數，方便前端自己排序用 */
+function toMillis(ts) {
+  if (!ts) return 0;
+  if (typeof ts.toMillis === "function") return ts.toMillis();
+  if (ts.seconds) return ts.seconds * 1000;
+  return 0;
+}
+
+/**
+ * 抓「全部公開食譜」的共用底層：只用單一條件查詢（isPublic == true），
+ * 不加 orderBy／不加第二個 where，這樣 Firestore 不需要任何複合索引，
+ * 排序、篩選全部交給下面各個函式自己用 JS 處理。
+ * 你們資料量小（10 人用），前端排序完全沒有效能問題。
+ */
+async function fetchAllPublicRecipes() {
+  const db = getDbInstance();
+  const q = query(collection(db, COLLECTION), where("isPublic", "==", true));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
 /** 刪除食譜（跳確認框的邏輯在畫面那層處理，這裡只負責刪除本身；圖片不會一起刪，見檔頭說明） */
 export async function deleteRecipe(recipeId) {
   const db = getDbInstance();
@@ -105,66 +124,40 @@ export async function getRecipe(recipeId) {
   return snap.exists() ? { id: snap.id, ...snap.data() } : null;
 }
 
-/** 公開食譜列表（列表頁「公開食譜」分頁），可依風格篩選 */
+/** 公開食譜列表（列表頁「公開食譜」分頁），可依風格篩選；抓全部後前端排序/篩選 */
 export async function listPublicRecipes({ style = null } = {}) {
-  const db = getDbInstance();
-  const clauses = [where("isPublic", "==", true)];
-  if (style) clauses.push(where("styles", "array-contains", style));
-  const q = query(collection(db, COLLECTION), ...clauses, orderBy("createdAt", "desc"));
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  let recipes = await fetchAllPublicRecipes();
+  if (style) recipes = recipes.filter((r) => (r.styles || []).includes(style));
+  return recipes.sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));
 }
 
-/** 我新增的食譜（「我的食譜」分頁 > 我新增的） */
+/** 我新增的食譜（「我的食譜」分頁 > 我新增的）；單一條件查詢，前端排序 */
 export async function listMyOwnRecipes(uid) {
   const db = getDbInstance();
-  const q = query(collection(db, COLLECTION), where("ownerId", "==", uid), orderBy("updatedAt", "desc"));
+  const q = query(collection(db, COLLECTION), where("ownerId", "==", uid));
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const recipes = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  return recipes.sort((a, b) => toMillis(b.updatedAt) - toMillis(a.updatedAt));
 }
 
-/**
- * 我收藏的食譜（「我的食譜」分頁 > 我收藏的）
- * 注意：這是複合查詢（isPublic == true 且 likedBy array-contains uid），
- * Firestore 第一次執行時通常會在瀏覽器 Console 印出一個建立索引的連結，
- * 點開自動建立即可，屬於正常流程不是錯誤。
- */
+/** 我收藏的食譜（「我的食譜」分頁 > 我收藏的）；抓全部公開食譜後前端篩自己收藏的 */
 export async function listMyCollectedRecipes(uid) {
-  const db = getDbInstance();
-  const q = query(
-    collection(db, COLLECTION),
-    where("isPublic", "==", true),
-    where("likedBy", "array-contains", uid),
-    orderBy("createdAt", "desc")
-  );
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const recipes = await fetchAllPublicRecipes();
+  return recipes
+    .filter((r) => (r.likedBy || []).includes(uid))
+    .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));
 }
 
 /** 首頁「熱門食譜」用：依熱門分數排序前 N 筆公開食譜 */
 export async function getTopPublicRecipes(count = 3) {
-  const db = getDbInstance();
-  const q = query(
-    collection(db, COLLECTION),
-    where("isPublic", "==", true),
-    orderBy("popularityScore", "desc"),
-    limit(count)
-  );
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const recipes = await fetchAllPublicRecipes();
+  return recipes.sort((a, b) => (b.popularityScore || 0) - (a.popularityScore || 0)).slice(0, count);
 }
 
 /** 首頁「朋友新分享」用：依建立時間排序最新 N 筆公開食譜 */
 export async function getRecentPublicRecipes(count = 3) {
-  const db = getDbInstance();
-  const q = query(
-    collection(db, COLLECTION),
-    where("isPublic", "==", true),
-    orderBy("createdAt", "desc"),
-    limit(count)
-  );
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const recipes = await fetchAllPublicRecipes();
+  return recipes.sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt)).slice(0, count);
 }
 
 /**

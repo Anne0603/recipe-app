@@ -251,9 +251,7 @@ export async function renderRecipeListPage(container) {
       body.innerHTML = `<div class="recipe-grid">${recipes.map(recipeCardHtml).join("")}</div>`;
     } catch (err) {
       console.error(err);
-      body.innerHTML = `<div class="empty-state">載入失敗，請稍後再試。${
-        err?.message?.includes("index") ? "（Firestore 提示需要建立索引，開瀏覽器 Console 看有沒有連結，點開自動建立即可）" : ""
-      }</div>`;
+      body.innerHTML = `<div class="empty-state">載入失敗，請稍後再試。</div>`;
     }
   }
 
