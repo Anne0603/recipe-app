@@ -16,6 +16,7 @@ import { signInWithGoogle, signOutUser, resolveMember, watchAuthState, getCurren
 import { getAppSettings, saveAppSettings, isAppSettingsComplete } from "./app-settings.js";
 import { renderRecipeListPage, renderRecipeDetailPage, renderRecipeFormPage } from "./recipe-pages.js";
 import { getTopPublicRecipes, getRecentPublicRecipes } from "./recipes.js";
+import { openLotteryFlow } from "./lottery.js";
 import { registerRoute, setBeforeEach, setOnRouteChange, startRouter, navigate } from "./router.js";
 import { showToast } from "./utils.js";
 
@@ -155,7 +156,7 @@ async function renderHomePage(container) {
   loadHomeRecipeSections();
 
   document.getElementById("lottery-btn").addEventListener("click", () => {
-    showToast("抽籤功能還沒實作，等「抽籤」功能開工時再一起討論規格");
+    openLotteryFlow();
   });
 }
 

@@ -24,7 +24,7 @@ import {
 import { uploadRecipeImage } from "./recipe-images.js";
 import { getCurrentMember, getMemberById } from "./auth.js";
 import { navigate } from "./router.js";
-import { showToast, showConfirm } from "./utils.js";
+import { showToast, showConfirm, openPickerSheet } from "./utils.js";
 
 /* ---------------------------------------------------------
    共用小圖示／小工具
@@ -48,67 +48,6 @@ const ICON_PIN = '<svg class="icon" viewBox="0 0 24 24"><path d="M12 2l2 6h6l-5 
 
 function initials(name) {
   return (name || "?").trim().slice(0, 1);
-}
-
-/** 通用彈出選單（置中視窗，跟刪除確認框同一種風格）：opts = [{value,label}]，multiple 決定單選/多選 */
-function openPickerSheet({ title, options, selected, multiple, onConfirm }) {
-  const overlay = document.createElement("div");
-  overlay.className = "picker-overlay";
-  const selectedSet = new Set(selected);
-
-  function renderOpts() {
-    return options
-      .map((opt) => {
-        const checked = selectedSet.has(opt.value);
-        return `<div class="sheet-opt ${checked ? "checked" : ""}" data-value="${opt.value}">
-          <div class="${multiple ? "box" : "radio"}">${multiple ? '<svg class="icon" viewBox="0 0 24 24" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg>' : ""}</div>
-          ${opt.label}
-        </div>`;
-      })
-      .join("");
-  }
-
-  overlay.innerHTML = `
-    <div class="picker-box">
-      <div class="sheet-title">${title}</div>
-      <div class="sheet-opts">${renderOpts()}</div>
-      ${multiple ? '<button type="button" class="sheet-confirm">確定</button>' : ""}
-    </div>
-  `;
-
-  function close() {
-    overlay.remove();
-  }
-
-  overlay.addEventListener("click", (e) => {
-    if (e.target === overlay) close();
-  });
-
-  overlay.querySelectorAll(".sheet-opt").forEach((el) => {
-    el.addEventListener("click", () => {
-      const value = el.dataset.value;
-      if (multiple) {
-        if (selectedSet.has(value)) selectedSet.delete(value);
-        else selectedSet.add(value);
-        el.classList.toggle("checked");
-      } else {
-        selectedSet.clear();
-        selectedSet.add(value);
-        onConfirm([value]);
-        close();
-      }
-    });
-  });
-
-  const confirmBtn = overlay.querySelector(".sheet-confirm");
-  if (confirmBtn) {
-    confirmBtn.addEventListener("click", () => {
-      onConfirm([...selectedSet]);
-      close();
-    });
-  }
-
-  document.body.appendChild(overlay);
 }
 
 /* ==========================================================

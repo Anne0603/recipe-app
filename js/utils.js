@@ -62,3 +62,70 @@ export function formatDate(date) {
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
 }
+
+/**
+ * 通用彈出選單（置中視窗，跟刪除確認框同一種風格）
+ * opts = [{value,label}]，multiple 決定單選/多選
+ * 對應文件第 736 行「使用者所有選擇類的操作 → 全部用下拉選單」的規則，
+ * 全站篩選/多選都共用這一個，不要各自刻一套。
+ */
+export function openPickerSheet({ title, options, selected, multiple, onConfirm }) {
+  const overlay = document.createElement("div");
+  overlay.className = "picker-overlay";
+  const selectedSet = new Set(selected);
+
+  function renderOpts() {
+    return options
+      .map((opt) => {
+        const checked = selectedSet.has(opt.value);
+        return `<div class="sheet-opt ${checked ? "checked" : ""}" data-value="${opt.value}">
+          <div class="${multiple ? "box" : "radio"}">${multiple ? '<svg class="icon" viewBox="0 0 24 24" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg>' : ""}</div>
+          ${opt.label}
+        </div>`;
+      })
+      .join("");
+  }
+
+  overlay.innerHTML = `
+    <div class="picker-box">
+      <div class="sheet-title">${title}</div>
+      <div class="sheet-opts">${renderOpts()}</div>
+      ${multiple ? '<button type="button" class="sheet-confirm">確定</button>' : ""}
+    </div>
+  `;
+
+  function close() {
+    overlay.remove();
+  }
+
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) close();
+  });
+
+  overlay.querySelectorAll(".sheet-opt").forEach((el) => {
+    el.addEventListener("click", () => {
+      const value = el.dataset.value;
+      if (multiple) {
+        if (selectedSet.has(value)) selectedSet.delete(value);
+        else selectedSet.add(value);
+        el.classList.toggle("checked");
+      } else {
+        selectedSet.clear();
+        selectedSet.add(value);
+        onConfirm([value]);
+        close();
+      }
+    });
+  });
+
+  const confirmBtn = overlay.querySelector(".sheet-confirm");
+  if (confirmBtn) {
+    confirmBtn.addEventListener("click", () => {
+      onConfirm([...selectedSet]);
+      close();
+    });
+  }
+
+  document.body.appendChild(overlay);
+  return { close };
+}
