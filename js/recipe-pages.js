@@ -273,6 +273,12 @@ export async function renderRecipeDetailPage(container, params) {
 
   const member = getCurrentMember();
   const isOwner = member?.uid === recipe.ownerId;
+
+  if (!recipe.isPublic && !isOwner) {
+    container.innerHTML = `<div class="placeholder-page"><p>這是私人食譜，你沒有權限查看。</p></div>`;
+    return;
+  }
+
   const liked = (recipe.likedBy || []).includes(member?.uid);
   const owner = await getMemberById(recipe.ownerId);
 
