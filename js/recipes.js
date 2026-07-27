@@ -14,9 +14,9 @@
    自動刪除（討論過的架構限制：unsigned 上傳沒有對應的安全刪除方式，
    純前端拿不到 API Secret，免費額度夠用，先接受這個取捨）。
 
-   TODO（等 17｜料理日記、21｜留言按讚 開工時要記得回來接）：
-   - 日記那邊「這道菜被用了一次」要呼叫這裡加 diaryUsageCount 並重算 popularityScore
+   TODO（等 21｜留言按讚 開工時要記得回來接）：
    - 留言新增/刪除時要更新 commentCount 並重算 popularityScore
+   （17｜料理日記那項已經接好，見下方 incrementDiaryUsage）
    ========================================================== */
 
 import {
@@ -193,4 +193,30 @@ export async function toggleLike(recipeId, uid) {
 
   await updateRecipe(recipeId, { likedBy: nextLikedBy, popularityScore });
   return !alreadyLiked;
+}
+
+/** 17｜料理日記「從食譜選」用：我看得到的全部食譜（我自己的不分公私 + 全部人公開的），去重 */
+export async function listRecipesForDiaryPicker(uid) {
+  const [mine, pub] = await Promise.all([listMyOwnRecipes(uid), listPublicRecipes({})]);
+  const map = new Map();
+  [...mine, ...pub].forEach((r) => map.set(r.id, r));
+  return [...map.values()].sort((a, b) => (a.name || "").localeCompare(b.name || "", "zh-Hant"));
+}
+
+/**
+ * 17｜料理日記：從食譜記錄一次日記時呼叫這個，diaryUsageCount +1 並重算熱門分數。
+ * 只有「從食譜選」的日記才會呼叫這個（自由輸入的不算，對應文件「只有從食譜選才計入熱門排序」）。
+ * 日記被刪除時「不」呼叫對應的減少（熱門分數是歷史累積，不會因為刪日記倒扣）。
+ */
+export async function incrementDiaryUsage(recipeId) {
+  const recipe = await getRecipe(recipeId);
+  if (!recipe) return; // 食譜可能已被刪除，日記快照仍保留，這裡安靜略過
+
+  const diaryUsageCount = (recipe.diaryUsageCount || 0) + 1;
+  const popularityScore = computePopularityScore({
+    likedBy: recipe.likedBy || [],
+    diaryUsageCount,
+    commentCount: recipe.commentCount || 0,
+  });
+  await updateRecipe(recipeId, { diaryUsageCount, popularityScore });
 }

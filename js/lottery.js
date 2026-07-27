@@ -12,6 +12,15 @@ import { listMyOwnRecipes, listPublicRecipes, listMyCollectedRecipes, getStyleCa
 import { getCurrentMember } from "./auth.js";
 import { showToast, showConfirm, openPickerSheet } from "./utils.js";
 import { navigate } from "./router.js";
+import { createDiaryEntry, todayDateStr } from "./diary.js";
+
+/** 抽籤決定後要記日記時，依現在時間猜一個合理的餐別（早餐/午餐/晚餐），使用者沒有另外被問這題 */
+function guessMealByTime() {
+  const hour = new Date().getHours();
+  if (hour < 10) return "breakfast";
+  if (hour < 15) return "lunch";
+  return "dinner";
+}
 
 const ICON_NO_PHOTO = '<svg class="icon" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M3 16l5-4 3 3 4-4 5 5"/></svg>';
 const ICON_DICE = '<svg class="icon" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><circle cx="8.5" cy="8.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="15.5" cy="8.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none"/><circle cx="8.5" cy="15.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="15.5" cy="15.5" r="1.1" fill="currentColor" stroke="none"/></svg>';
@@ -119,7 +128,21 @@ function showResultCard(candidates, filters) {
       const wantsDiary = await showConfirm("要記錄到今天的料理日記嗎？");
       overlay.remove();
       if (wantsDiary) {
-        showToast("日記功能還沒實作，等「17｜料理日記」開工時再串接");
+        try {
+          const member = getCurrentMember();
+          await createDiaryEntry(member.uid, {
+            date: todayDateStr(),
+            meal: guessMealByTime(),
+            inputType: "recipe",
+            recipeId: current.id,
+            name: current.name,
+            servings: current.servings ?? null,
+          });
+          showToast("已記錄到今天的料理日記");
+        } catch (err) {
+          console.error(err);
+          showToast("記錄失敗，請再試一次");
+        }
       }
     });
 

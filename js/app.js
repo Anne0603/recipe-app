@@ -17,6 +17,8 @@ import { getAppSettings, saveAppSettings, isAppSettingsComplete } from "./app-se
 import { renderRecipeListPage, renderRecipeDetailPage, renderRecipeFormPage } from "./recipe-pages.js";
 import { getTopPublicRecipes, getRecentPublicRecipes } from "./recipes.js";
 import { openLotteryFlow } from "./lottery.js";
+import { renderDiaryPage } from "./diary-pages.js";
+import { cleanupExpiredEntries } from "./diary.js";
 import { registerRoute, setBeforeEach, setOnRouteChange, startRouter, navigate } from "./router.js";
 import { showToast } from "./utils.js";
 
@@ -262,6 +264,13 @@ async function renderAppConfigPage(container) {
           <input type="text" id="field-openWeatherApiKey" value="${settings.openWeatherApiKey}" />
         </div>
       </div>
+      <div class="setup-section">
+        <h2>料理日記</h2>
+        <div class="field">
+          <label for="field-diaryRetentionMonths">保留期限（幾個月，超過自動清除）</label>
+          <input type="number" id="field-diaryRetentionMonths" min="1" step="1" value="${settings.diaryRetentionMonths}" />
+        </div>
+      </div>
       <button id="app-config-save-btn" class="btn btn-primary">儲存</button>
     </div>
   `;
@@ -271,6 +280,7 @@ async function renderAppConfigPage(container) {
       cloudinaryCloudName: document.getElementById("field-cloudinaryCloudName").value.trim(),
       cloudinaryUploadPreset: document.getElementById("field-cloudinaryUploadPreset").value.trim(),
       openWeatherApiKey: document.getElementById("field-openWeatherApiKey").value.trim(),
+      diaryRetentionMonths: Number(document.getElementById("field-diaryRetentionMonths").value) || 18,
     };
     try {
       const saved = await saveAppSettings(updates);
@@ -377,7 +387,7 @@ registerRoute("/recipes", renderRecipeListPage);
 registerRoute("/recipes/new", renderRecipeFormPage, { hideTabbar: true });
 registerRoute("/recipes/:id/edit", renderRecipeFormPage, { hideTabbar: true });
 registerRoute("/recipes/:id", renderRecipeDetailPage, { hideTabbar: true });
-registerRoute("/diary", renderPlaceholderPage("料理日記"));
+registerRoute("/diary", renderDiaryPage);
 registerRoute("/expenses", renderPlaceholderPage("花費記錄"));
 registerRoute("/friends", renderPlaceholderPage("朋友"));
 registerRoute("/settings", renderSettingsPage);
@@ -433,6 +443,7 @@ async function boot() {
       isLoggedIn = true;
       applyTheme(getCurrentMember()?.theme);
       updateTabbarVisibility();
+      cleanupExpiredEntries(getCurrentMember()?.uid).catch((err) => console.error("日記過期清理失敗", err));
       if (window.location.hash === "#/login" || !window.location.hash) {
         navigate("/home");
       }

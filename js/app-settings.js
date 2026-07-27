@@ -28,6 +28,11 @@ const EMPTY_SETTINGS = {
   openWeatherApiKey: "",
 };
 
+/** 這些有自己的合理預設值，不算在「Cloudinary/天氣填齊了沒」的檢查裡 */
+const OTHER_DEFAULTS = {
+  diaryRetentionMonths: 18, // 17｜料理日記：保留期限，管理員可調整，文件建議值 18 個月
+};
+
 let cachedSettings = null;
 
 /** 讀取共用設定（有快取，同一個分頁內不會重複打 Firestore） */
@@ -38,7 +43,8 @@ export async function getAppSettings({ forceRefresh = false } = {}) {
   const db = getDbInstance();
   const ref = doc(db, ...SETTINGS_DOC_PATH);
   const snap = await getDoc(ref);
-  cachedSettings = snap.exists() ? { ...EMPTY_SETTINGS, ...snap.data() } : { ...EMPTY_SETTINGS };
+  const base = { ...EMPTY_SETTINGS, ...OTHER_DEFAULTS };
+  cachedSettings = snap.exists() ? { ...base, ...snap.data() } : base;
   return cachedSettings;
 }
 
@@ -47,7 +53,7 @@ export async function saveAppSettings(partial) {
   const db = getDbInstance();
   const ref = doc(db, ...SETTINGS_DOC_PATH);
   await setDoc(ref, { ...partial, updatedAt: serverTimestamp() }, { merge: true });
-  cachedSettings = { ...(cachedSettings || EMPTY_SETTINGS), ...partial };
+  cachedSettings = { ...(cachedSettings || { ...EMPTY_SETTINGS, ...OTHER_DEFAULTS }), ...partial };
   return cachedSettings;
 }
 
