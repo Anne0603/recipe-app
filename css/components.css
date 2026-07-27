@@ -303,11 +303,12 @@
 .dropdown-field-compact { width: fit-content; padding: 9px 12px; font-weight: 700; }
 .dropdown-field-compact .icon:first-child { color: var(--color-sage); }
 
-/* ---------- 底部彈出選單（單選/多選共用） ---------- */
-.sheet-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.35); display: flex; align-items: flex-end; justify-content: center; z-index: 1000; }
-.sheet-box { width: 100%; max-width: 480px; background: var(--color-surface); border-radius: 20px 20px 0 0; padding: 16px 16px 24px; max-height: 70vh; overflow-y: auto; }
+/* ---------- 彈出選單（置中視窗，跟刪除確認框同一種風格） ---------- */
+.picker-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 24px; }
+.picker-box { width: 100%; max-width: 340px; background: var(--color-surface); border-radius: var(--radius-lg); padding: 18px 18px 16px; max-height: 78vh; overflow-y: auto; }
 .sheet-title { font-family: var(--font-display); font-weight: 700; font-size: 15px; margin-bottom: 10px; }
 .sheet-opt { display: flex; align-items: center; gap: 10px; padding: 12px 4px; border-bottom: 1px solid var(--color-border); font-size: 14px; cursor: pointer; }
+.sheet-opt:last-child { border-bottom: none; }
 .sheet-opt .box { width: 19px; height: 19px; border-radius: 5px; border: 1.5px solid var(--color-border); flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
 .sheet-opt .box svg { width: 12px; height: 12px; color: #fff; }
 .sheet-opt.checked .box { background: var(--color-sage); border-color: var(--color-sage); }

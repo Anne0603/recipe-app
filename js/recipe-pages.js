@@ -49,10 +49,10 @@ function initials(name) {
   return (name || "?").trim().slice(0, 1);
 }
 
-/** 通用底部彈出選單：opts = [{value,label}]，multiple 決定單選/多選 */
+/** 通用彈出選單（置中視窗，跟刪除確認框同一種風格）：opts = [{value,label}]，multiple 決定單選/多選 */
 function openPickerSheet({ title, options, selected, multiple, onConfirm }) {
   const overlay = document.createElement("div");
-  overlay.className = "sheet-overlay open";
+  overlay.className = "picker-overlay";
   const selectedSet = new Set(selected);
 
   function renderOpts() {
@@ -68,7 +68,7 @@ function openPickerSheet({ title, options, selected, multiple, onConfirm }) {
   }
 
   overlay.innerHTML = `
-    <div class="sheet-box">
+    <div class="picker-box">
       <div class="sheet-title">${title}</div>
       <div class="sheet-opts">${renderOpts()}</div>
       ${multiple ? '<button type="button" class="sheet-confirm">確定</button>' : ""}
