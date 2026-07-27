@@ -32,7 +32,7 @@ import { showToast, showConfirm } from "./utils.js";
 const ICON_BOWL = '<svg class="icon" viewBox="0 0 24 24"><path d="M4 12h16M5 12a7 7 0 0 0 14 0M3 12l1-5h16l1 5"/></svg>';
 const ICON_NO_PHOTO = '<svg class="icon" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M3 16l5-4 3 3 4-4 5 5"/></svg>';
 const ICON_HEART = '<svg class="icon" viewBox="0 0 24 24"><path d="M12 21s-7-4.5-7-10a5 5 0 0 1 9-3 5 5 0 0 1 9 3c0 5.5-7 10-7 10a1 1 0 0 1-4 0Z"/></svg>';
-const ICON_HEART_FILLED = '<svg class="icon" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 21s-7-4.5-7-10a5 5 0 0 1 9-3 5 5 0 0 1 9 3c0 5.5-7 10-7 10a1 1 0 0 1-4 0Z"/></svg>';
+const ICON_HEART_FILLED = '<svg class="icon icon-solid" viewBox="0 0 24 24"><path d="M12 21s-7-4.5-7-10a5 5 0 0 1 9-3 5 5 0 0 1 9 3c0 5.5-7 10-7 10a1 1 0 0 1-4 0Z"/></svg>';
 const ICON_BACK = '<svg class="icon" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>';
 const ICON_PLUS = '<svg class="icon" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>';
 const ICON_CHEV_DOWN = '<svg class="icon" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>';

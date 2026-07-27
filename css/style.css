@@ -66,6 +66,12 @@ body {
   display: block;
 }
 
+/* 填滿版圖示（例如已收藏的實心愛心），要蓋掉上面 .icon 的 fill:none */
+.icon-solid {
+  fill: currentColor;
+  stroke: none;
+}
+
 .hidden {
   display: none !important;
 }
