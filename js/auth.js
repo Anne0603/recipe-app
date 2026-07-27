@@ -88,3 +88,11 @@ export async function getMemberById(uid) {
   const snap = await getDoc(doc(db, "users", uid));
   return snap.exists() ? { uid, ...snap.data() } : null;
 }
+
+/** 更新目前登入者的主題偏好（存進 Firestore 的成員資料，換裝置也會記得） */
+export async function updateMyTheme(theme) {
+  if (!currentMember) return;
+  const db = getDbInstance();
+  await setDoc(doc(db, "users", currentMember.uid), { theme }, { merge: true });
+  currentMember.theme = theme;
+}

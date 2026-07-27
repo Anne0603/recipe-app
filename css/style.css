@@ -72,6 +72,43 @@ body {
   stroke: none;
 }
 
+/* ==========================================================
+   主題色系（外觀設定可切換，存在每位成員自己的帳號資料裡）
+   套用方式：<html data-theme="sage"> 這樣加屬性，CSS 變數就會整套換掉
+   ========================================================== */
+:root[data-theme="sage"] {
+  --color-bg: #F3F1EC; --color-surface: #FBFAF7; --color-text: #4A473F; --color-text-muted: #9C9689; --color-border: #E4E6DC;
+  --color-primary: #8A9A7E; --color-primary-bg: #E7ECDF; --color-primary-dark: #71805F;
+  --color-butter: #A98F6B; --color-butter-bg: #EFE9DE;
+  --color-berry: #B37D6C; --color-berry-bg: #EFE4E0;
+  --color-sky: #7C93A0; --color-sky-bg: #E3E9EC;
+  --color-sage: #6F7C63; --color-sage-bg: #E3E7DC;
+}
+:root[data-theme="blue-grey"] {
+  --color-bg: #F0F1F0; --color-surface: #FAFBFB; --color-text: #3F4548; --color-text-muted: #8D9699; --color-border: #DEE6E8;
+  --color-primary: #7B93A0; --color-primary-bg: #E3E9EC; --color-primary-dark: #62808F;
+  --color-butter: #B08D5E; --color-butter-bg: #F1E8DC;
+  --color-berry: #8B7593; --color-berry-bg: #EAE3EC;
+  --color-sky: #7B93A0; --color-sky-bg: #E3E9EC;
+  --color-sage: #7C8A78; --color-sage-bg: #E4E7E1;
+}
+:root[data-theme="rose"] {
+  --color-bg: #F5EFEE; --color-surface: #FDFAF9; --color-text: #4A3F3D; --color-text-muted: #A2938F; --color-border: #EEE0DE;
+  --color-primary: #B98A88; --color-primary-bg: #F1E2E0; --color-primary-dark: #9C6D6B;
+  --color-butter: #B08F5C; --color-butter-bg: #F0E6D8;
+  --color-berry: #B98A88; --color-berry-bg: #F1E2E0;
+  --color-sky: #8B96A8; --color-sky-bg: #E4E7EC;
+  --color-sage: #748067; --color-sage-bg: #E7EBE5;
+}
+:root[data-theme="taupe"] {
+  --color-bg: #F2EEE7; --color-surface: #FBF9F5; --color-text: #443D34; --color-text-muted: #96897A; --color-border: #E6DDCC;
+  --color-primary: #A98F6E; --color-primary-bg: #EFE7DA; --color-primary-dark: #8C7455;
+  --color-butter: #A98F6B; --color-butter-bg: #EAE3D5;
+  --color-berry: #A08083; --color-berry-bg: #EFE2E3;
+  --color-sky: #8496A0; --color-sky-bg: #E3E9EC;
+  --color-sage: #5F6E5B; --color-sage-bg: #E4E7E1;
+}
+
 .hidden {
   display: none !important;
 }

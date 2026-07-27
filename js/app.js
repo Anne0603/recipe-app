@@ -12,7 +12,7 @@
 
 import { isConfigComplete, getMissingFields } from "./config-check.js";
 import { initFirebase } from "./firebase-init.js";
-import { signInWithGoogle, signOutUser, resolveMember, watchAuthState, getCurrentMember, isAdmin } from "./auth.js";
+import { signInWithGoogle, signOutUser, resolveMember, watchAuthState, getCurrentMember, isAdmin, updateMyTheme } from "./auth.js";
 import { getAppSettings, saveAppSettings, isAppSettingsComplete } from "./app-settings.js";
 import { renderRecipeListPage, renderRecipeDetailPage, renderRecipeFormPage } from "./recipe-pages.js";
 import { getTopPublicRecipes, getRecentPublicRecipes } from "./recipes.js";
@@ -21,6 +21,24 @@ import { registerRoute, setBeforeEach, setOnRouteChange, startRouter, navigate }
 import { showToast } from "./utils.js";
 
 let isLoggedIn = false;
+
+const THEME_STORAGE_KEY = "recipeApp.theme";
+const THEME_OPTIONS = [
+  { value: "terracotta", label: "陶土橘", swatch: "#D9773F" },
+  { value: "sage", label: "鼠尾草綠", swatch: "#8A9A7E" },
+  { value: "blue-grey", label: "霧藍灰", swatch: "#7B93A0" },
+  { value: "rose", label: "霧玫瑰", swatch: "#B98A88" },
+  { value: "taupe", label: "奶茶駝", swatch: "#A98F6E" },
+];
+
+function applyTheme(theme) {
+  const value = theme || "terracotta";
+  document.documentElement.setAttribute("data-theme", value);
+  localStorage.setItem(THEME_STORAGE_KEY, value);
+}
+
+// 頁面一開啟就先套用上次快取的主題，避免登入資料還沒回來前畫面閃一下預設色
+applyTheme(localStorage.getItem(THEME_STORAGE_KEY));
 
 /* ---------------------------------------------------------
    設定未完成時的提示頁面（#/setup）
@@ -273,16 +291,46 @@ async function renderAppConfigPage(container) {
 --------------------------------------------------------- */
 function renderSettingsPage(container) {
   const member = getCurrentMember();
+  const currentTheme = member?.theme || "terracotta";
+
   container.innerHTML = `
     <div class="setup-wizard">
       <h1>設定</h1>
       <p class="setup-intro">登入身分：${member?.displayName || ""}（${isAdmin() ? "管理員" : "一般成員"}）</p>
+
+      <div class="setup-section">
+        <h2>外觀</h2>
+        <div class="theme-swatch-row">
+          ${THEME_OPTIONS.map(
+            (t) => `
+            <button type="button" class="theme-swatch-btn ${t.value === currentTheme ? "selected" : ""}" data-theme-value="${t.value}">
+              <span class="theme-swatch-dot" style="background:${t.swatch}"></span>
+              <span class="theme-swatch-label">${t.label}</span>
+            </button>`
+          ).join("")}
+        </div>
+      </div>
+
       ${isAdmin() ? '<div class="setup-section"><a href="#/app-config" class="btn btn-ghost">服務設定（Cloudinary／天氣金鑰）</a></div>' : ""}
       <div class="setup-section">
         <button id="settings-logout-btn" class="btn btn-danger">登出</button>
       </div>
     </div>
   `;
+
+  container.querySelectorAll(".theme-swatch-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const value = btn.dataset.themeValue;
+      applyTheme(value);
+      container.querySelectorAll(".theme-swatch-btn").forEach((b) => b.classList.toggle("selected", b === btn));
+      try {
+        await updateMyTheme(value);
+      } catch (err) {
+        console.error(err);
+        showToast("主題已套用，但存到帳號失敗，換裝置可能要重選");
+      }
+    });
+  });
 
   document.getElementById("settings-logout-btn").addEventListener("click", async () => {
     await signOutUser();
@@ -383,6 +431,7 @@ async function boot() {
 
     if (result === "ok") {
       isLoggedIn = true;
+      applyTheme(getCurrentMember()?.theme);
       updateTabbarVisibility();
       if (window.location.hash === "#/login" || !window.location.hash) {
         navigate("/home");
