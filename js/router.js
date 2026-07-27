@@ -46,7 +46,14 @@ export function setOnRouteChange(fn) {
 
 function currentPath() {
   const hash = window.location.hash || "#/home";
-  return hash.replace(/^#/, "") || "/home";
+  return hash.replace(/^#/, "").split("?")[0] || "/home";
+}
+
+function currentQuery() {
+  const hash = window.location.hash || "";
+  const qIndex = hash.indexOf("?");
+  if (qIndex === -1) return {};
+  return Object.fromEntries(new URLSearchParams(hash.slice(qIndex + 1)));
 }
 
 /** 找出符合目前路徑的路由，回傳 { route, params }，找不到回傳 null */
@@ -79,9 +86,10 @@ function render() {
 
   const container = document.getElementById("app");
   const matched = matchRoute(path);
+  const query = currentQuery();
 
   if (matched) {
-    matched.route.handler(container, matched.params);
+    matched.route.handler(container, matched.params, query);
   } else {
     notFoundHandler(container);
   }
@@ -104,9 +112,10 @@ export function startRouter() {
   render();
 }
 
-/** 用程式碼導頁（例如登入成功後導去首頁） */
-export function navigate(path) {
-  window.location.hash = `#${path}`;
+/** 用程式碼導頁（例如登入成功後導去首頁），第二個參數可帶查詢字串物件，例如 navigate("/recipes", { sort: "hot" }) */
+export function navigate(path, query) {
+  const qs = query && Object.keys(query).length ? `?${new URLSearchParams(query).toString()}` : "";
+  window.location.hash = `#${path}${qs}`;
 }
 
 /** 重新渲染目前頁面（不改網址），用於同頁內資料更新後刷新畫面 */

@@ -53,12 +53,13 @@ function initials(name) {
 /* ==========================================================
    畫面 1：食譜列表（#/recipes）
    ========================================================== */
-export async function renderRecipeListPage(container) {
+export async function renderRecipeListPage(container, params, query = {}) {
   const member = getCurrentMember();
   const state = {
     tab: "public", // 'public' | 'mine'
     mineSub: "own", // 'own' | 'collected'
     style: null,
+    sort: query.sort === "hot" ? "hot" : "recent", // 'recent' | 'hot'，從首頁「看全部」深連結決定初始值
   };
 
   container.innerHTML = `
@@ -114,7 +115,15 @@ export async function renderRecipeListPage(container) {
         });
       });
     } else {
-      subrow.innerHTML = `<div class="filter-trigger-row">${renderStyleFilterTrigger()}</div>`;
+      subrow.innerHTML = `
+        <div class="filter-trigger-row filter-trigger-row-multi">
+          ${renderStyleFilterTrigger()}
+          <div class="sort-toggle">
+            <button type="button" class="${state.sort === "recent" ? "active" : ""}" data-sort="recent">最新</button>
+            <button type="button" class="${state.sort === "hot" ? "active" : ""}" data-sort="hot">熱門</button>
+          </div>
+        </div>
+      `;
       document.getElementById("recipe-style-filter").addEventListener("click", async () => {
         const categories = await getStyleCategories();
         openPickerSheet({
@@ -126,6 +135,13 @@ export async function renderRecipeListPage(container) {
             state.style = value || null;
             renderSubRowAndBody();
           },
+        });
+      });
+      subrow.querySelectorAll(".sort-toggle button").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          state.sort = btn.dataset.sort;
+          subrow.querySelectorAll(".sort-toggle button").forEach((b) => b.classList.toggle("active", b === btn));
+          loadAndRenderBody();
         });
       });
     }
@@ -170,7 +186,7 @@ export async function renderRecipeListPage(container) {
     try {
       let recipes = [];
       if (state.tab === "public") {
-        recipes = await listPublicRecipes({ style: state.style });
+        recipes = await listPublicRecipes({ style: state.style, sort: state.sort });
       } else if (state.mineSub === "own") {
         recipes = await listMyOwnRecipes(member.uid);
       } else {

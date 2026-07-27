@@ -134,10 +134,13 @@ export async function getRecipe(recipeId) {
   return snap.exists() ? { id: snap.id, ...snap.data() } : null;
 }
 
-/** 公開食譜列表（列表頁「公開食譜」分頁），可依風格篩選；抓全部後前端排序/篩選 */
-export async function listPublicRecipes({ style = null } = {}) {
+/** 公開食譜列表（列表頁「公開食譜」分頁），可依風格篩選、依排序模式排序；抓全部後前端排序/篩選 */
+export async function listPublicRecipes({ style = null, sort = "recent" } = {}) {
   let recipes = await fetchAllPublicRecipes();
   if (style) recipes = recipes.filter((r) => (r.styles || []).includes(style));
+  if (sort === "hot") {
+    return recipes.sort((a, b) => (b.popularityScore || 0) - (a.popularityScore || 0));
+  }
   return recipes.sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));
 }
 
