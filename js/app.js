@@ -159,7 +159,7 @@ async function renderHomePage(container) {
   });
 }
 
-const HOME_BOWL_ICON = '<svg class="icon" viewBox="0 0 24 24"><path d="M4 12h16M5 12a7 7 0 0 0 14 0M3 12l1-5h16l1 5"/></svg>';
+const HOME_NO_PHOTO_ICON = '<svg class="icon" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M3 16l5-4 3 3 4-4 5 5"/></svg>';
 const HOME_HEART_ICON = '<svg class="icon" viewBox="0 0 24 24"><path d="M12 21s-7-4.5-7-10a5 5 0 0 1 9-3 5 5 0 0 1 9 3c0 5.5-7 10-7 10a1 1 0 0 1-4 0Z"/></svg>';
 
 function homeRecipeRowHtml(recipe) {
@@ -167,7 +167,7 @@ function homeRecipeRowHtml(recipe) {
   return `
     <a href="#/recipes/${recipe.id}" class="rank-item">
       <div class="rank-thumb" style="${recipe.coverImageUrl ? `background-image:url('${recipe.coverImageUrl}');background-size:cover;` : ""}">
-        ${recipe.coverImageUrl ? "" : HOME_BOWL_ICON}
+        ${recipe.coverImageUrl ? "" : HOME_NO_PHOTO_ICON}
       </div>
       <div class="rank-info">
         <div class="rank-name">${recipe.name}</div>
