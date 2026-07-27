@@ -14,7 +14,9 @@ import { isConfigComplete, getMissingFields } from "./config-check.js";
 import { initFirebase } from "./firebase-init.js";
 import { signInWithGoogle, signOutUser, resolveMember, watchAuthState, getCurrentMember, isAdmin } from "./auth.js";
 import { getAppSettings, saveAppSettings, isAppSettingsComplete } from "./app-settings.js";
-import { registerRoute, setBeforeEach, startRouter, navigate } from "./router.js";
+import { renderRecipeListPage, renderRecipeDetailPage, renderRecipeFormPage } from "./recipe-pages.js";
+import { getTopPublicRecipes, getRecentPublicRecipes } from "./recipes.js";
+import { registerRoute, setBeforeEach, setOnRouteChange, startRouter, navigate } from "./router.js";
 import { showToast } from "./utils.js";
 
 let isLoggedIn = false;
@@ -81,7 +83,7 @@ function renderLoginPage(container) {
    這幾塊背後的功能都還沒做，先用空狀態文字，不用假資料冒充。
    天氣、抽籤按鈕也是先有畫面，實際邏輯等對應功能開工時才接上。
 --------------------------------------------------------- */
-function renderHomePage(container) {
+async function renderHomePage(container) {
   const member = getCurrentMember();
   const hour = new Date().getHours();
   const greeting = hour < 11 ? "早安" : hour < 18 ? "午安" : "晚安";
@@ -127,16 +129,18 @@ function renderHomePage(container) {
       <div class="home-section-head">
         <svg class="icon" viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4Z"/><path d="M7 6H4a3 3 0 0 0 3 5M17 6h3a3 3 0 0 1-3 5"/></svg>
         <h2>熱門食譜</h2>
+        <a href="#/recipes" class="more">看全部 ›</a>
       </div>
-      <div class="empty-state">還沒有食譜資料，等「食譜」功能上線後這裡會顯示大家最常收藏的菜色。</div>
+      <div id="home-hot-recipes"><div class="empty-state">載入中…</div></div>
     </div>
 
     <div class="home-section">
       <div class="home-section-head">
         <svg class="icon" viewBox="0 0 24 24"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2 20c0-3.3 2.7-6 6-6s6 2.7 6 6M14 20c0-2.5 1.8-4.5 4-4.5s4 2 4 4.5"/></svg>
         <h2>朋友新分享</h2>
+        <a href="#/recipes" class="more">看全部 ›</a>
       </div>
-      <div class="empty-state">還沒有分享資料，等食譜功能上線、朋友發布新食譜後會顯示在這裡。</div>
+      <div id="home-recent-recipes"><div class="empty-state">載入中…</div></div>
     </div>
 
     <div class="home-section">
@@ -148,9 +152,54 @@ function renderHomePage(container) {
     </div>
   `;
 
+  loadHomeRecipeSections();
+
   document.getElementById("lottery-btn").addEventListener("click", () => {
     showToast("抽籤功能還沒實作，等「抽籤」功能開工時再一起討論規格");
   });
+}
+
+const HOME_BOWL_ICON = '<svg class="icon" viewBox="0 0 24 24"><path d="M4 12h16M5 12a7 7 0 0 0 14 0M3 12l1-5h16l1 5"/></svg>';
+const HOME_HEART_ICON = '<svg class="icon" viewBox="0 0 24 24"><path d="M12 21s-7-4.5-7-10a5 5 0 0 1 9-3 5 5 0 0 1 9 3c0 5.5-7 10-7 10a1 1 0 0 1-4 0Z"/></svg>';
+
+function homeRecipeRowHtml(recipe) {
+  const tag = (recipe.styles || [])[0] || "";
+  return `
+    <a href="#/recipes/${recipe.id}" class="rank-item">
+      <div class="rank-thumb" style="${recipe.coverImageUrl ? `background-image:url('${recipe.coverImageUrl}');background-size:cover;` : ""}">
+        ${recipe.coverImageUrl ? "" : HOME_BOWL_ICON}
+      </div>
+      <div class="rank-info">
+        <div class="rank-name">${recipe.name}</div>
+        <div class="rank-meta">${tag ? `${tag}・` : ""}${HOME_HEART_ICON}${(recipe.likedBy || []).length}</div>
+      </div>
+    </a>
+  `;
+}
+
+async function loadHomeRecipeSections() {
+  const hotEl = document.getElementById("home-hot-recipes");
+  const recentEl = document.getElementById("home-recent-recipes");
+  if (!hotEl || !recentEl) return; // 使用者可能已經換頁
+
+  try {
+    const [hot, recent] = await Promise.all([getTopPublicRecipes(3), getRecentPublicRecipes(3)]);
+
+    hotEl.innerHTML = hot.length
+      ? `<div class="rank-list">${hot.map(homeRecipeRowHtml).join("")}</div>`
+      : `<div class="empty-state">還沒有公開食譜，等大家分享後這裡會顯示最多人收藏的菜色。</div>`;
+
+    recentEl.innerHTML = recent.length
+      ? `<div class="rank-list">${recent.map(homeRecipeRowHtml).join("")}</div>`
+      : `<div class="empty-state">還沒有公開食譜，等朋友發布新食譜後會顯示在這裡。</div>`;
+  } catch (err) {
+    console.error(err);
+    const hint = err?.message?.includes("index")
+      ? "（Console 應該有出現建立索引的連結，點開自動建立、等 1-2 分鐘再重新整理即可）"
+      : "";
+    hotEl.innerHTML = `<div class="empty-state">載入失敗，請稍後再試。${hint}</div>`;
+    recentEl.innerHTML = `<div class="empty-state">載入失敗，請稍後再試。${hint}</div>`;
+  }
 }
 
 /* ---------------------------------------------------------
@@ -235,7 +284,8 @@ function renderSettingsPage(container) {
 
   document.getElementById("settings-logout-btn").addEventListener("click", async () => {
     await signOutUser();
-    setTabbarVisible(false);
+    isLoggedIn = false;
+    updateTabbarVisibility();
     navigate("/login");
   });
 }
@@ -251,10 +301,21 @@ function renderPlaceholderPage(title) {
 
 /* ---------------------------------------------------------
    底部導覽列的顯示/隱藏
+   ----------------------------------------------------------
+   要同時看兩個條件：有沒有登入、目前這個路由要不要顯示導覽列
+   （詳情頁、新增表單這種次頁面 hideTabbar 是 true）。
 --------------------------------------------------------- */
-function setTabbarVisible(visible) {
-  document.getElementById("tabbar").classList.toggle("hidden", !visible);
+let currentRouteHideTabbar = false;
+
+function updateTabbarVisibility() {
+  const shouldShow = isLoggedIn && !currentRouteHideTabbar;
+  document.getElementById("tabbar").classList.toggle("hidden", !shouldShow);
 }
+
+setOnRouteChange(({ hideTabbar }) => {
+  currentRouteHideTabbar = hideTabbar;
+  updateTabbarVisibility();
+});
 
 /* ---------------------------------------------------------
    路由註冊
@@ -262,7 +323,10 @@ function setTabbarVisible(visible) {
 registerRoute("/setup", renderSetupPage);
 registerRoute("/login", renderLoginPage);
 registerRoute("/home", renderHomePage);
-registerRoute("/recipes", renderPlaceholderPage("食譜"));
+registerRoute("/recipes", renderRecipeListPage);
+registerRoute("/recipes/new", renderRecipeFormPage, { hideTabbar: true });
+registerRoute("/recipes/:id/edit", renderRecipeFormPage, { hideTabbar: true });
+registerRoute("/recipes/:id", renderRecipeDetailPage, { hideTabbar: true });
 registerRoute("/diary", renderPlaceholderPage("料理日記"));
 registerRoute("/expenses", renderPlaceholderPage("花費記錄"));
 registerRoute("/friends", renderPlaceholderPage("朋友"));
@@ -297,7 +361,7 @@ setBeforeEach((path) => {
 --------------------------------------------------------- */
 async function boot() {
   if (!isConfigComplete()) {
-    setTabbarVisible(false);
+    updateTabbarVisibility();
     startRouter();
     navigate("/setup");
     return;
@@ -308,7 +372,7 @@ async function boot() {
   watchAuthState(async (firebaseUser) => {
     if (!firebaseUser) {
       isLoggedIn = false;
-      setTabbarVisible(false);
+      updateTabbarVisibility();
       navigate("/login");
       return;
     }
@@ -317,19 +381,19 @@ async function boot() {
 
     if (result === "ok") {
       isLoggedIn = true;
-      setTabbarVisible(true);
+      updateTabbarVisibility();
       if (window.location.hash === "#/login" || !window.location.hash) {
         navigate("/home");
       }
     } else if (result === "not_whitelisted") {
       isLoggedIn = false;
-      setTabbarVisible(false);
+      updateTabbarVisibility();
       await signOutUser();
       showToast("這個帳號還不在成員名單裡，請聯絡管理員");
       navigate("/login");
     } else if (result === "disabled") {
       isLoggedIn = false;
-      setTabbarVisible(false);
+      updateTabbarVisibility();
       await signOutUser();
       showToast("帳號已停用，等待管理員審核啟用");
       navigate("/login");

@@ -80,3 +80,11 @@ export function watchAuthState(callback) {
 export function isAdmin() {
   return currentMember?.role === "admin";
 }
+
+/** 依 uid 查一筆成員資料（例如食譜詳情頁要顯示發布者名字），查不到回傳 null */
+export async function getMemberById(uid) {
+  if (!uid) return null;
+  const db = getDbInstance();
+  const snap = await getDoc(doc(db, "users", uid));
+  return snap.exists() ? { uid, ...snap.data() } : null;
+}

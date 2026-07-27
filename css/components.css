@@ -201,7 +201,7 @@
   overflow: hidden;
 }
 
-.rank-item { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
+.rank-item { display: flex; align-items: center; gap: 12px; padding: 12px 14px; color: var(--color-text); text-decoration: none; }
 .rank-item + .rank-item { border-top: 1px solid var(--color-border); }
 .rank-no {
   font-family: var(--font-display);
@@ -278,3 +278,146 @@
 .challenge-body { flex: 1; }
 .challenge-title { font-size: 13.5px; font-weight: 700; }
 .challenge-status { font-size: 11px; color: var(--color-berry); font-weight: 700; white-space: nowrap; }
+
+/* ==========================================================
+   食譜功能：列表／詳情／新增編輯表單
+   ========================================================== */
+
+/* ---------- 頁首（次頁面用，含返回鍵） ---------- */
+.page-head { display: flex; align-items: center; gap: 10px; padding: 18px 16px 12px; }
+.page-head h1 { font-family: var(--font-display); font-size: 18px; font-weight: 700; flex: 1; margin: 0; }
+.back-btn, .head-action-btn { width: 22px; height: 22px; background: none; border: none; padding: 0; color: var(--color-text); cursor: pointer; flex-shrink: 0; }
+.back-btn .icon, .head-action-btn .icon { width: 22px; height: 22px; }
+.head-action-btn { color: var(--color-primary); }
+
+/* ---------- 單選/子分類切換條 ---------- */
+.segment { display: flex; margin: 4px 16px 14px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 999px; padding: 3px; }
+.segment button { flex: 1; border: none; background: none; font-family: inherit; font-size: 12.5px; font-weight: 700; padding: 8px 0; border-radius: 999px; color: var(--color-text-muted); cursor: pointer; }
+.segment button.active { background: var(--color-primary); color: #fff; }
+.segment-sm { margin: 0 16px 14px; }
+
+/* ---------- 下拉式選單觸發欄位（篩選／多選都用這個外觀） ---------- */
+.filter-trigger-row { padding: 0 16px 14px; }
+.dropdown-field { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; border: 1px solid var(--color-border); border-radius: 10px; padding: 11px 12px; font-size: 13.5px; font-family: inherit; background: var(--color-surface); color: var(--color-text); cursor: pointer; }
+.dropdown-field .icon { width: 16px; height: 16px; color: var(--color-text-muted); flex-shrink: 0; }
+.dropdown-field-compact { width: fit-content; padding: 9px 12px; font-weight: 700; }
+.dropdown-field-compact .icon:first-child { color: var(--color-sage); }
+
+/* ---------- 底部彈出選單（單選/多選共用） ---------- */
+.sheet-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.35); display: flex; align-items: flex-end; justify-content: center; z-index: 1000; }
+.sheet-box { width: 100%; max-width: 480px; background: var(--color-surface); border-radius: 20px 20px 0 0; padding: 16px 16px 24px; max-height: 70vh; overflow-y: auto; }
+.sheet-title { font-family: var(--font-display); font-weight: 700; font-size: 15px; margin-bottom: 10px; }
+.sheet-opt { display: flex; align-items: center; gap: 10px; padding: 12px 4px; border-bottom: 1px solid var(--color-border); font-size: 14px; cursor: pointer; }
+.sheet-opt .box { width: 19px; height: 19px; border-radius: 5px; border: 1.5px solid var(--color-border); flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.sheet-opt .box svg { width: 12px; height: 12px; color: #fff; }
+.sheet-opt.checked .box { background: var(--color-sage); border-color: var(--color-sage); }
+.sheet-opt .radio { width: 19px; height: 19px; border-radius: 50%; border: 1.5px solid var(--color-border); flex-shrink: 0; }
+.sheet-opt.checked .radio { border-color: var(--color-sage); background: radial-gradient(circle, var(--color-sage) 0 40%, transparent 41%); }
+.sheet-confirm { width: 100%; background: var(--color-primary); color: #fff; border: none; border-radius: 999px; padding: 13px; font-size: 14px; font-weight: 700; font-family: inherit; margin-top: 12px; }
+
+/* ---------- 食譜列表：卡片格 ---------- */
+.recipe-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 0 16px 16px; }
+.recipe-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 14px; overflow: hidden; display: block; color: var(--color-text); }
+.recipe-cover { height: 96px; background: var(--color-primary-bg); background-size: cover; background-position: center; display: flex; align-items: center; justify-content: center; position: relative; }
+.recipe-cover .icon { width: 26px; height: 26px; color: var(--color-primary); }
+.pin-badge { position: absolute; top: 6px; left: 6px; background: var(--color-butter); color: #fff; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 999px; display: flex; align-items: center; gap: 3px; }
+.pin-badge .icon { width: 9px; height: 9px; }
+.recipe-info { padding: 9px 10px 11px; }
+.recipe-name { font-size: 13px; font-weight: 700; line-height: 1.3; }
+.recipe-tags { display: flex; gap: 4px; margin-top: 5px; flex-wrap: wrap; }
+.recipe-tags span { font-size: 10px; color: var(--color-sage); background: var(--color-sage-bg); padding: 2px 7px; border-radius: 999px; }
+.recipe-meta { display: flex; align-items: center; justify-content: space-between; margin-top: 7px; gap: 4px; }
+.recipe-owner { display: flex; align-items: center; gap: 4px; font-size: 10.5px; color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recipe-owner .avatar-sm { width: 15px; height: 15px; border-radius: 50%; background: var(--color-berry-bg); color: var(--color-berry); display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 700; flex-shrink: 0; }
+.recipe-like-count { display: flex; align-items: center; gap: 3px; font-size: 10.5px; color: var(--color-primary); font-weight: 700; flex-shrink: 0; }
+.recipe-like-count .icon { width: 11px; height: 11px; }
+
+.fab-btn { position: fixed; right: 18px; bottom: 100px; width: 52px; height: 52px; border-radius: 50%; background: var(--color-primary); color: #fff; border: none; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 18px -4px rgba(217,119,63,0.6); cursor: pointer; }
+.fab-btn .icon { width: 24px; height: 24px; }
+
+/* ---------- 食譜詳情 ---------- */
+.detail-cover { height: 220px; background: var(--color-primary-bg); background-size: cover; background-position: center; display: flex; align-items: center; justify-content: center; position: relative; }
+.detail-cover .icon { width: 40px; height: 40px; color: var(--color-primary); }
+.detail-cover-actions { position: absolute; top: 14px; left: 14px; right: 14px; display: flex; justify-content: space-between; }
+.round-btn { width: 34px; height: 34px; border-radius: 50%; background: rgba(255,255,255,0.9); border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.round-btn .icon { width: 17px; height: 17px; color: var(--color-text); }
+.round-btn.liked .icon { color: var(--color-berry); }
+
+.detail-body { padding: 16px 16px 32px; }
+.detail-title { font-family: var(--font-display); font-size: 20px; font-weight: 900; }
+.detail-owner { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 12.5px; color: var(--color-text-muted); }
+.detail-owner .avatar { width: 20px; height: 20px; border-radius: 50%; background: var(--color-berry-bg); color: var(--color-berry); display: flex; align-items: center; justify-content: center; font-size: 9.5px; font-weight: 700; flex-shrink: 0; }
+.detail-tags { display: flex; gap: 5px; margin-top: 10px; flex-wrap: wrap; }
+.detail-tags span { font-size: 11px; color: var(--color-sage); background: var(--color-sage-bg); padding: 3px 9px; border-radius: 999px; font-weight: 700; }
+
+.meta-row { display: flex; gap: 10px; margin-top: 14px; }
+.meta-pill { flex: 1; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 12px; padding: 10px; text-align: center; }
+.meta-pill .icon { width: 17px; height: 17px; color: var(--color-text-muted); margin: 0 auto 4px; }
+.meta-pill .meta-val { font-size: 13px; font-weight: 700; }
+.meta-pill .meta-label { font-size: 10px; color: var(--color-text-muted); margin-top: 1px; }
+
+.owner-actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+.owner-actions .btn { flex: 1; text-align: center; font-size: 12.5px; padding: 9px; }
+
+.detail-section { margin-top: 22px; }
+.detail-section h3 { font-family: var(--font-display); font-size: 14.5px; font-weight: 700; margin: 0 0 10px; display: flex; align-items: center; gap: 6px; }
+.detail-section h3 .icon { width: 15px; height: 15px; color: var(--color-text-muted); }
+
+.ingredient-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--color-border); font-size: 13px; }
+.ingredient-row .amt { color: var(--color-text-muted); }
+
+.step-row { display: flex; gap: 10px; margin-bottom: 12px; }
+.step-no { width: 22px; height: 22px; border-radius: 50%; background: var(--color-primary-bg); color: var(--color-primary); font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.step-text { font-size: 13px; line-height: 1.55; padding-top: 2px; }
+
+.tip-box { background: var(--color-butter-bg); color: #7a5c1c; border-radius: 12px; padding: 12px 14px; font-size: 12.5px; line-height: 1.6; }
+
+/* ---------- 新增／編輯表單 ---------- */
+.form-wrap { padding: 16px 16px 40px; }
+.form-field { margin-bottom: 18px; }
+.form-field label { display: flex; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 700; color: var(--color-text); margin-bottom: 6px; }
+.form-field .req { color: var(--color-berry); }
+.form-field input[type="text"], .form-field input[type="number"], .form-field select, .form-field textarea {
+  width: 100%; border: 1px solid var(--color-border); border-radius: 10px; padding: 10px 12px; font-size: 13.5px; font-family: inherit; background: var(--color-surface); color: var(--color-text);
+}
+.form-field textarea { resize: vertical; min-height: 60px; }
+.form-hint { font-size: 11px; color: var(--color-text-muted); margin-top: 5px; }
+
+.cover-upload { height: 130px; border: 1.5px dashed var(--color-border); border-radius: 14px; background: var(--color-surface); background-size: cover; background-position: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: var(--color-text-muted); cursor: pointer; }
+.cover-upload .icon { width: 26px; height: 26px; }
+.cover-upload span { font-size: 12px; }
+
+.ing-row { display: flex; gap: 7px; margin-bottom: 8px; align-items: center; }
+.ing-row .ing-name { flex: 2; }
+.ing-row .ing-amt { flex: 1; }
+.ing-row .ing-unit { flex: 1; }
+.ing-row input, .ing-row select { border: 1px solid var(--color-border); border-radius: 9px; padding: 8px 9px; font-size: 12.5px; font-family: inherit; background: var(--color-surface); color: var(--color-text); }
+.row-del { width: 28px; height: 28px; border-radius: 8px; background: var(--color-berry-bg); color: var(--color-berry); border: none; display: flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer; }
+.row-del .icon { width: 14px; height: 14px; }
+.add-row-btn { display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: var(--color-primary); padding: 8px 0; cursor: pointer; user-select: none; }
+.add-row-btn .icon { width: 15px; height: 15px; }
+
+.step-form-row { display: flex; gap: 8px; margin-bottom: 9px; align-items: flex-start; }
+.step-form-no { width: 22px; height: 22px; border-radius: 50%; background: var(--color-primary-bg); color: var(--color-primary); font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 6px; }
+.step-form-row textarea { flex: 1; min-height: 44px; }
+.step-form-actions { display: flex; flex-direction: column; gap: 3px; }
+.step-form-actions button { width: 22px; height: 22px; border-radius: 6px; background: var(--color-surface); border: 1px solid var(--color-border); color: var(--color-text-muted); display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
+.step-form-actions button:disabled { opacity: 0.35; cursor: not-allowed; }
+.step-form-actions .icon { width: 12px; height: 12px; }
+
+.tag-input-row { display: flex; flex-wrap: wrap; gap: 6px; border: 1px solid var(--color-border); border-radius: 10px; padding: 8px 10px; background: var(--color-surface); }
+.tag-chip { font-size: 11.5px; background: var(--color-primary-bg); color: var(--color-primary); padding: 4px 9px; border-radius: 999px; display: flex; align-items: center; gap: 5px; }
+.tag-chip .icon { width: 10px; height: 10px; cursor: pointer; }
+.tag-input-row input { border: none; outline: none; font-size: 12.5px; font-family: inherit; flex: 1; min-width: 80px; background: transparent; }
+
+.visibility-toggle { display: flex; align-items: center; justify-content: space-between; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 12px; padding: 12px 14px; }
+.visibility-toggle .vt-label { font-size: 13px; font-weight: 700; }
+.visibility-toggle .vt-desc { font-size: 11px; color: var(--color-text-muted); margin-top: 2px; }
+.switch-btn { width: 42px; height: 24px; border-radius: 999px; background: var(--color-border); position: relative; flex-shrink: 0; border: none; cursor: pointer; padding: 0; }
+.switch-btn::after { content: ""; position: absolute; width: 18px; height: 18px; border-radius: 50%; background: #fff; top: 3px; left: 3px; box-shadow: 0 1px 2px rgba(0,0,0,0.2); transition: left 0.15s; }
+.switch-btn.on { background: var(--color-primary); }
+.switch-btn.on::after { left: 21px; }
+
+.save-btn { width: 100%; background: var(--color-primary); color: #fff; border: none; border-radius: 999px; padding: 14px; font-size: 14.5px; font-weight: 700; font-family: inherit; margin-top: 6px; cursor: pointer; }
+
+.todo-note { background: #fff8ea; border: 1px dashed var(--color-butter); color: #7a5c1c; font-size: 11px; border-radius: 8px; padding: 8px 10px; margin-top: 6px; line-height: 1.5; }
