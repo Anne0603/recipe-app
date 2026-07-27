@@ -163,16 +163,20 @@ async function renderHomePage(container) {
 const HOME_NO_PHOTO_ICON = '<svg class="icon" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M3 16l5-4 3 3 4-4 5 5"/></svg>';
 const HOME_HEART_ICON = '<svg class="icon" viewBox="0 0 24 24"><path d="M12 21s-7-4.5-7-10a5 5 0 0 1 9-3 5 5 0 0 1 9 3c0 5.5-7 10-7 10a1 1 0 0 1-4 0Z"/></svg>';
 
-function homeRecipeRowHtml(recipe) {
-  const tag = (recipe.styles || [])[0] || "";
+function homeRecipeCardHtml(recipe) {
+  const styleTags = (recipe.styles || []).slice(0, 2).map((s) => `<span>${s}</span>`).join("");
   return `
-    <a href="#/recipes/${recipe.id}" class="rank-item">
-      <div class="rank-thumb" style="${recipe.coverImageUrl ? `background-image:url('${recipe.coverImageUrl}');background-size:cover;` : ""}">
+    <a href="#/recipes/${recipe.id}" class="recipe-card">
+      <div class="recipe-cover" style="${recipe.coverImageUrl ? `background-image:url('${recipe.coverImageUrl}')` : ""}">
         ${recipe.coverImageUrl ? "" : HOME_NO_PHOTO_ICON}
       </div>
-      <div class="rank-info">
-        <div class="rank-name">${recipe.name}</div>
-        <div class="rank-meta">${tag ? `${tag}・` : ""}${HOME_HEART_ICON}${(recipe.likedBy || []).length}</div>
+      <div class="recipe-info">
+        <div class="recipe-name">${recipe.name}</div>
+        <div class="recipe-tags">${styleTags}</div>
+        <div class="recipe-meta">
+          <div></div>
+          <div class="recipe-like-count">${HOME_HEART_ICON}${(recipe.likedBy || []).length}</div>
+        </div>
       </div>
     </a>
   `;
@@ -184,14 +188,14 @@ async function loadHomeRecipeSections() {
   if (!hotEl || !recentEl) return; // 使用者可能已經換頁
 
   try {
-    const [hot, recent] = await Promise.all([getTopPublicRecipes(3), getRecentPublicRecipes(3)]);
+    const [hot, recent] = await Promise.all([getTopPublicRecipes(4), getRecentPublicRecipes(4)]);
 
     hotEl.innerHTML = hot.length
-      ? `<div class="rank-list">${hot.map(homeRecipeRowHtml).join("")}</div>`
+      ? `<div class="recipe-grid">${hot.map(homeRecipeCardHtml).join("")}</div>`
       : `<div class="empty-state">還沒有公開食譜，等大家分享後這裡會顯示最多人收藏的菜色。</div>`;
 
     recentEl.innerHTML = recent.length
-      ? `<div class="rank-list">${recent.map(homeRecipeRowHtml).join("")}</div>`
+      ? `<div class="recipe-grid">${recent.map(homeRecipeCardHtml).join("")}</div>`
       : `<div class="empty-state">還沒有公開食譜，等朋友發布新食譜後會顯示在這裡。</div>`;
   } catch (err) {
     console.error(err);

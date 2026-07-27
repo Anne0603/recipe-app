@@ -10,7 +10,7 @@
    ========================================================== */
 
 import {
-  STYLE_CATEGORIES,
+  getStyleCategories,
   UNIT_OPTIONS,
   createRecipe,
   updateRecipe,
@@ -115,10 +115,11 @@ export async function renderRecipeListPage(container) {
       });
     } else {
       subrow.innerHTML = `<div class="filter-trigger-row">${renderStyleFilterTrigger()}</div>`;
-      document.getElementById("recipe-style-filter").addEventListener("click", () => {
+      document.getElementById("recipe-style-filter").addEventListener("click", async () => {
+        const categories = await getStyleCategories();
         openPickerSheet({
           title: "依風格篩選",
-          options: [{ value: "", label: "全部" }, ...STYLE_CATEGORIES.map((s) => ({ value: s, label: s }))],
+          options: [{ value: "", label: "全部" }, ...categories.map((s) => ({ value: s, label: s }))],
           selected: state.style ? [state.style] : [""],
           multiple: false,
           onConfirm: ([value]) => {
@@ -484,10 +485,11 @@ export async function renderRecipeFormPage(container, params) {
   });
 
   /* ---------- 風格分類（下拉多選） ---------- */
-  document.getElementById("field-styles").addEventListener("click", () => {
+  document.getElementById("field-styles").addEventListener("click", async () => {
+    const categories = await getStyleCategories();
     openPickerSheet({
       title: "選擇風格分類",
-      options: STYLE_CATEGORIES.map((s) => ({ value: s, label: s })),
+      options: categories.map((s) => ({ value: s, label: s })),
       selected: form.styles,
       multiple: true,
       onConfirm: (values) => {

@@ -8,7 +8,7 @@
    （17｜料理日記還沒做，先禮貌地告知還沒接上，不裝作有這功能）
    ========================================================== */
 
-import { listMyOwnRecipes, listPublicRecipes, listMyCollectedRecipes, STYLE_CATEGORIES } from "./recipes.js";
+import { listMyOwnRecipes, listPublicRecipes, listMyCollectedRecipes, getStyleCategories } from "./recipes.js";
 import { getCurrentMember } from "./auth.js";
 import { showToast, showConfirm, openPickerSheet } from "./utils.js";
 import { navigate } from "./router.js";
@@ -182,10 +182,11 @@ function openFilterModal(initialFilters) {
       });
     });
 
-    document.getElementById("lf-style").addEventListener("click", () => {
+    document.getElementById("lf-style").addEventListener("click", async () => {
+      const categories = await getStyleCategories();
       openPickerSheet({
         title: "選擇風格",
-        options: [{ value: "all", label: "全部" }, ...STYLE_CATEGORIES.map((s) => ({ value: s, label: s }))],
+        options: [{ value: "all", label: "全部" }, ...categories.map((s) => ({ value: s, label: s }))],
         selected: [filters.style],
         multiple: false,
         onConfirm: ([v]) => {

@@ -36,7 +36,17 @@ import { getDbInstance } from "./firebase-init.js";
 const COLLECTION = "recipes";
 
 /** 08｜風格分類：預設清單。管理員能不能新增/刪除/排序，等「風格分類管理」功能討論時再做設定介面。 */
-export const STYLE_CATEGORIES = ["台式", "韓式", "日式", "義式", "湯品", "快炒", "其他"];
+/**
+ * 08｜風格分類：目前先用固定清單。
+ * 特別設計成「非同步函式」而不是直接匯出陣列，是為了預留未來擴充空間：
+ * 之後如果做「風格分類管理」（管理員可新增/刪除/排序），只要改這個函式
+ * 內部去讀 Firestore，全部呼叫這個函式的地方（抽籤、列表篩選、新增表單）
+ * 會自動一起變，不用一個一個地方改，避免 Beebo 那種到處漏改的狀況。
+ */
+const DEFAULT_STYLE_CATEGORIES = ["台式", "韓式", "日式", "義式", "湯品", "快炒", "其他"];
+export async function getStyleCategories() {
+  return DEFAULT_STYLE_CATEGORIES;
+}
 
 /** 04｜新增食譜：單位選項（下拉選單） */
 export const UNIT_OPTIONS = [
