@@ -72,10 +72,11 @@ export function formatDate(date) {
  * 對應文件第 736 行「使用者所有選擇類的操作 → 全部用下拉選單」的規則，
  * 全站篩選/多選都共用這一個，不要各自刻一套。
  */
-export function openPickerSheet({ title, options, selected, multiple, onConfirm }) {
+export function openPickerSheet({ title, options, selected, multiple, requireConfirm = false, onConfirm }) {
   const overlay = document.createElement("div");
   overlay.className = "picker-overlay";
   const selectedSet = new Set(selected);
+  const needsConfirmBtn = multiple || requireConfirm;
 
   function renderOpts() {
     return options
@@ -96,7 +97,7 @@ export function openPickerSheet({ title, options, selected, multiple, onConfirm 
       </button>
       <div class="sheet-title">${title}</div>
       <div class="sheet-opts">${renderOpts()}</div>
-      ${multiple ? '<button type="button" class="sheet-confirm">確定</button>' : ""}
+      ${needsConfirmBtn ? '<button type="button" class="sheet-confirm" disabled>確定</button>' : ""}
     </div>
   `;
 
@@ -110,6 +111,8 @@ export function openPickerSheet({ title, options, selected, multiple, onConfirm 
     if (e.target === overlay) close();
   });
 
+  const confirmBtn = overlay.querySelector(".sheet-confirm");
+
   overlay.querySelectorAll(".sheet-opt").forEach((el) => {
     el.addEventListener("click", () => {
       const value = el.dataset.value;
@@ -120,15 +123,20 @@ export function openPickerSheet({ title, options, selected, multiple, onConfirm 
       } else {
         selectedSet.clear();
         selectedSet.add(value);
-        onConfirm([value]);
-        close();
+        overlay.querySelectorAll(".sheet-opt").forEach((o) => o.classList.toggle("checked", o === el));
+        if (!requireConfirm) {
+          onConfirm([value]);
+          close();
+          return;
+        }
       }
+      if (confirmBtn) confirmBtn.disabled = selectedSet.size === 0;
     });
   });
 
-  const confirmBtn = overlay.querySelector(".sheet-confirm");
   if (confirmBtn) {
     confirmBtn.addEventListener("click", () => {
+      if (selectedSet.size === 0) return;
       onConfirm([...selectedSet]);
       close();
     });

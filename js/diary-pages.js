@@ -23,6 +23,69 @@ function toDateStr(year, month, day) {
   return `${year}-${pad2(month + 1)}-${pad2(day)}`;
 }
 
+const WHEEL_ITEM_H = 42;
+
+/** 滾輪式年月選擇器（真的可以用手指滑動，不是一格一格點的清單） */
+function openWheelYearMonthPicker(currentYear, currentMonth, onConfirm) {
+  const thisYear = new Date().getFullYear();
+  const years = [];
+  for (let y = thisYear - 4; y <= thisYear + 2; y++) years.push(y);
+  const months = Array.from({ length: 12 }, (_, i) => i);
+
+  const overlay = document.createElement("div");
+  overlay.className = "picker-overlay";
+  overlay.innerHTML = `
+    <div class="picker-box wheel-picker-box">
+      <button type="button" class="dialog-close picker-close" aria-label="關閉">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+      <div class="sheet-title">選擇年月</div>
+      <div class="wheel-picker-wrap">
+        <div class="wheel-center-band"></div>
+        <div class="wheel-col" id="wheel-year">
+          <div class="wheel-pad"></div>
+          ${years.map((y) => `<div class="wheel-item" data-value="${y}">${y} 年</div>`).join("")}
+          <div class="wheel-pad"></div>
+        </div>
+        <div class="wheel-col" id="wheel-month">
+          <div class="wheel-pad"></div>
+          ${months.map((m) => `<div class="wheel-item" data-value="${m}">${m + 1} 月</div>`).join("")}
+          <div class="wheel-pad"></div>
+        </div>
+      </div>
+      <button type="button" id="wheel-confirm" class="sheet-confirm">確定</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  const yearCol = overlay.querySelector("#wheel-year");
+  const monthCol = overlay.querySelector("#wheel-month");
+
+  function scrollToIndex(col, index) {
+    col.scrollTop = index * WHEEL_ITEM_H;
+  }
+  function currentIndex(col) {
+    return Math.round(col.scrollTop / WHEEL_ITEM_H);
+  }
+
+  // 打開時先捲到目前選的年月
+  const yearIndex = Math.max(0, years.indexOf(currentYear));
+  scrollToIndex(yearCol, yearIndex);
+  scrollToIndex(monthCol, currentMonth);
+
+  overlay.querySelector(".picker-close").addEventListener("click", () => overlay.remove());
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) overlay.remove();
+  });
+
+  overlay.querySelector("#wheel-confirm").addEventListener("click", () => {
+    const y = years[currentIndex(yearCol)] ?? currentYear;
+    const m = months[currentIndex(monthCol)] ?? currentMonth;
+    overlay.remove();
+    onConfirm(y, m);
+  });
+}
+
 export async function renderDiaryPage(container) {
   const member = getCurrentMember();
   const today = new Date();
@@ -148,29 +211,10 @@ export async function renderDiaryPage(container) {
     });
 
     document.getElementById("cal-title-btn").addEventListener("click", () => {
-      const thisYear = today.getFullYear();
-      const yearOptions = [];
-      for (let y = thisYear - 3; y <= thisYear + 1; y++) yearOptions.push({ value: String(y), label: `${y} 年` });
-
-      openPickerSheet({
-        title: "選擇年份",
-        options: yearOptions,
-        selected: [String(state.year)],
-        multiple: false,
-        onConfirm: ([yearStr]) => {
-          const monthOptions = Array.from({ length: 12 }, (_, i) => ({ value: String(i), label: `${i + 1} 月` }));
-          openPickerSheet({
-            title: "選擇月份",
-            options: monthOptions,
-            selected: [String(state.month)],
-            multiple: false,
-            onConfirm: ([monthStr]) => {
-              state.year = Number(yearStr);
-              state.month = Number(monthStr);
-              render();
-            },
-          });
-        },
+      openWheelYearMonthPicker(state.year, state.month, (y, m) => {
+        state.year = y;
+        state.month = m;
+        render();
       });
     });
 

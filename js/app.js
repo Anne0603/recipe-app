@@ -25,6 +25,13 @@ import { showToast } from "./utils.js";
 let isLoggedIn = false;
 
 const THEME_STORAGE_KEY = "recipeApp.theme";
+const ICON_IMAGE = '<svg class="icon" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M3 16l5-4 3 3 4-4 5 5"/></svg>';
+const ICON_CLOUD = '<svg class="icon" viewBox="0 0 24 24"><path d="M7 18a4 4 0 0 1 0-8 5.5 5.5 0 0 1 10.6-1.6A4 4 0 0 1 17 18H7Z"/></svg>';
+const ICON_CALENDAR = '<svg class="icon" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>';
+const ICON_PALETTE = '<svg class="icon" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.5-.9.9-1.7-.6-.7-.3-1.8.7-1.8H15a5 5 0 0 0 5-5c0-5.5-3.6-9.5-8-9.5Z"/><circle cx="7.5" cy="12" r="1.1" fill="currentColor" stroke="none"/><circle cx="9.5" cy="8" r="1.1" fill="currentColor" stroke="none"/><circle cx="14.5" cy="8" r="1.1" fill="currentColor" stroke="none"/></svg>';
+const ICON_GEAR = '<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.6 2 3.4 2.4-1c.6.5 1.3.9 2 1.2L10 21h4l.5-2.6c.7-.3 1.4-.7 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2Z"/></svg>';
+const ICON_LOGOUT = '<svg class="icon" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>';
+
 const THEME_OPTIONS = [
   { value: "terracotta", label: "陶土橘", swatch: "#D9773F" },
   { value: "sage", label: "鼠尾草綠", swatch: "#8A9A7E" },
@@ -241,39 +248,52 @@ async function renderAppConfigPage(container) {
   const settings = await getAppSettings({ forceRefresh: true });
 
   container.innerHTML = `
-    <div class="setup-wizard">
+    <div class="page-head">
+      <button id="config-back" class="back-btn"><svg class="icon" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
       <h1>管理設定</h1>
-      <p class="setup-intro">
-        管理員專屬的全站設定，包含第三方服務金鑰和 APP 的一些行為規則，全部人共用一份，存在 Firestore，改了不用碰程式碼、不用重新部署。
-      </p>
-      <div class="setup-section">
-        <h2>Cloudinary（食譜圖片）</h2>
+    </div>
+    <p class="settings-page-desc">管理員專屬，全部人共用一份，存在 Firestore，改了不用碰程式碼、不用重新部署。</p>
+
+    <div class="settings-group">
+      <div class="settings-group-title">${ICON_IMAGE}Cloudinary（食譜圖片）</div>
+      <div class="settings-card">
         <div class="field">
           <label for="field-cloudinaryCloudName">Cloud name</label>
           <input type="text" id="field-cloudinaryCloudName" value="${settings.cloudinaryCloudName}" />
         </div>
-        <div class="field">
+        <div class="field" style="margin-bottom:0">
           <label for="field-cloudinaryUploadPreset">Upload preset 名稱</label>
           <input type="text" id="field-cloudinaryUploadPreset" value="${settings.cloudinaryUploadPreset}" />
         </div>
       </div>
-      <div class="setup-section">
-        <h2>OpenWeatherMap（天氣）</h2>
-        <div class="field">
+    </div>
+
+    <div class="settings-group">
+      <div class="settings-group-title">${ICON_CLOUD}OpenWeatherMap（天氣）</div>
+      <div class="settings-card">
+        <div class="field" style="margin-bottom:0">
           <label for="field-openWeatherApiKey">API key</label>
           <input type="text" id="field-openWeatherApiKey" value="${settings.openWeatherApiKey}" />
         </div>
       </div>
-      <div class="setup-section">
-        <h2>料理日記</h2>
-        <div class="field">
+    </div>
+
+    <div class="settings-group">
+      <div class="settings-group-title">${ICON_CALENDAR}料理日記</div>
+      <div class="settings-card">
+        <div class="field" style="margin-bottom:0">
           <label for="field-diaryRetentionMonths">保留期限（幾個月，超過自動清除）</label>
           <input type="number" id="field-diaryRetentionMonths" min="1" step="1" value="${settings.diaryRetentionMonths}" />
         </div>
       </div>
-      <button id="app-config-save-btn" class="btn btn-primary">儲存</button>
+    </div>
+
+    <div class="settings-save-bar">
+      <button id="app-config-save-btn" class="btn btn-primary settings-save-btn">儲存</button>
     </div>
   `;
+
+  document.getElementById("config-back").addEventListener("click", () => navigate("/settings"));
 
   document.getElementById("app-config-save-btn").addEventListener("click", async () => {
     const updates = {
@@ -295,7 +315,6 @@ async function renderAppConfigPage(container) {
 /* ---------------------------------------------------------
    設定頁（#/settings）
    ----------------------------------------------------------
-   目前只放登出、管理員專屬的管理設定入口。
    個人化設定（通知開關、Discord Webhook 等）之後功能討論到
    再補進來。
 --------------------------------------------------------- */
@@ -304,12 +323,19 @@ function renderSettingsPage(container) {
   const currentTheme = member?.theme || "terracotta";
 
   container.innerHTML = `
-    <div class="setup-wizard">
-      <h1>設定</h1>
-      <p class="setup-intro">登入身分：${member?.displayName || ""}（${isAdmin() ? "管理員" : "一般成員"}）</p>
+    <div class="page-head"><h1>設定</h1></div>
 
-      <div class="setup-section">
-        <h2>外觀</h2>
+    <div class="settings-profile-card">
+      <div class="settings-profile-avatar">${(member?.displayName || "?").slice(0, 1)}</div>
+      <div>
+        <div class="settings-profile-name">${member?.displayName || ""}</div>
+        <div class="settings-profile-role">${isAdmin() ? "管理員" : "一般成員"}</div>
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <div class="settings-group-title">${ICON_PALETTE}外觀</div>
+      <div class="settings-card">
         <div class="theme-swatch-row">
           ${THEME_OPTIONS.map(
             (t) => `
@@ -320,11 +346,29 @@ function renderSettingsPage(container) {
           ).join("")}
         </div>
       </div>
+    </div>
 
-      ${isAdmin() ? '<div class="setup-section"><a href="#/app-config" class="btn btn-ghost">管理設定（服務金鑰／料理日記等）</a></div>' : ""}
-      <div class="setup-section">
-        <button id="settings-logout-btn" class="btn btn-danger">登出</button>
-      </div>
+    ${
+      isAdmin()
+        ? `<div class="settings-group">
+            <div class="settings-group-title">管理員專區</div>
+            <a href="#/app-config" class="settings-link-card">
+              <div class="settings-link-icon">${ICON_GEAR}</div>
+              <div class="settings-link-text">
+                <div class="settings-link-title">管理設定</div>
+                <div class="settings-link-desc">第三方服務金鑰、料理日記保留期限</div>
+              </div>
+              <svg class="icon settings-link-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+            </a>
+          </div>`
+        : ""
+    }
+
+    <div class="settings-group">
+      <button id="settings-logout-btn" class="settings-link-card settings-link-danger">
+        <div class="settings-link-icon">${ICON_LOGOUT}</div>
+        <div class="settings-link-text"><div class="settings-link-title">登出</div></div>
+      </button>
     </div>
   `;
 
@@ -391,7 +435,7 @@ registerRoute("/diary", renderDiaryPage);
 registerRoute("/expenses", renderPlaceholderPage("花費記錄"));
 registerRoute("/friends", renderPlaceholderPage("朋友"));
 registerRoute("/settings", renderSettingsPage);
-registerRoute("/app-config", renderAppConfigPage);
+registerRoute("/app-config", renderAppConfigPage, { hideTabbar: true });
 
 // 換頁前檢查：設定沒填齊 → 強制留在 /setup；沒登入 → 強制留在 /login
 setBeforeEach((path) => {
