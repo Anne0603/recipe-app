@@ -25,8 +25,9 @@ import {
 import { uploadRecipeImage } from "./recipe-images.js";
 import { getCurrentMember, getMemberById, isAdmin } from "./auth.js";
 import { navigate } from "./router.js";
-import { showToast, showConfirm, openPickerSheet } from "./utils.js";
+import { showToast, showConfirm, openPickerSheet, debounce } from "./utils.js";
 import { createComment, listCommentsForRecipe, deleteComment, toggleCommentLike } from "./comments.js";
+import { searchRecipes, TIME_FILTER_OPTIONS } from "./search.js";
 
 /* ---------------------------------------------------------
    共用小圖示／小工具
@@ -94,6 +95,38 @@ async function openLikersModal(uids) {
     .join("");
 }
 
+function recipeCardHtml(recipe) {
+  const styleTags = (recipe.styles || []).slice(0, 2).map((s) => `<span>${s}</span>`).join("");
+  return `
+    <a href="#/recipes/${recipe.id}" class="recipe-card">
+      <div class="recipe-cover" style="${recipe.coverImageUrl ? `background-image:url('${recipe.coverImageUrl}')` : ""}">
+        ${recipe.pinned ? `<div class="pin-badge">${ICON_PIN}置頂</div>` : ""}
+        ${recipe.coverImageUrl ? "" : ICON_NO_PHOTO}
+      </div>
+      <div class="recipe-info">
+        <div class="recipe-name">${recipe.name}</div>
+        <div class="recipe-tags">${styleTags}</div>
+        <div class="recipe-meta">
+          <div class="recipe-owner">${recipe.ownerName ? `<div class="avatar-sm">${initials(recipe.ownerName)}</div>${recipe.ownerName}` : ""}</div>
+          <div class="recipe-like-count">${ICON_HEART}${(recipe.likedBy || []).length}</div>
+        </div>
+      </div>
+    </a>
+  `;
+}
+
+async function attachOwnerNames(recipes) {
+  const cache = new Map();
+  for (const r of recipes) {
+    if (!cache.has(r.ownerId)) {
+      const owner = await getMemberById(r.ownerId);
+      cache.set(r.ownerId, owner?.displayName || "");
+    }
+    r.ownerName = cache.get(r.ownerId);
+  }
+  return recipes;
+}
+
 /* ==========================================================
    畫面 1：食譜列表（#/recipes）
    ========================================================== */
@@ -121,7 +154,7 @@ export async function renderRecipeListPage(container, params, query = {}) {
   `;
 
   document.getElementById("recipe-search-btn").addEventListener("click", () => {
-    showToast("搜尋功能還沒實作，等「07｜搜尋」開工時再一起討論規格");
+    navigate("/search");
   });
   document.getElementById("recipe-fab").addEventListener("click", () => navigate("/recipes/new"));
 
@@ -190,38 +223,6 @@ export async function renderRecipeListPage(container, params, query = {}) {
       });
     }
     loadAndRenderBody();
-  }
-
-  function recipeCardHtml(recipe) {
-    const styleTags = (recipe.styles || []).slice(0, 2).map((s) => `<span>${s}</span>`).join("");
-    return `
-      <a href="#/recipes/${recipe.id}" class="recipe-card">
-        <div class="recipe-cover" style="${recipe.coverImageUrl ? `background-image:url('${recipe.coverImageUrl}')` : ""}">
-          ${recipe.pinned ? `<div class="pin-badge">${ICON_PIN}置頂</div>` : ""}
-          ${recipe.coverImageUrl ? "" : ICON_NO_PHOTO}
-        </div>
-        <div class="recipe-info">
-          <div class="recipe-name">${recipe.name}</div>
-          <div class="recipe-tags">${styleTags}</div>
-          <div class="recipe-meta">
-            <div class="recipe-owner">${recipe.ownerName ? `<div class="avatar-sm">${initials(recipe.ownerName)}</div>${recipe.ownerName}` : ""}</div>
-            <div class="recipe-like-count">${ICON_HEART}${(recipe.likedBy || []).length}</div>
-          </div>
-        </div>
-      </a>
-    `;
-  }
-
-  async function attachOwnerNames(recipes) {
-    const cache = new Map();
-    for (const r of recipes) {
-      if (!cache.has(r.ownerId)) {
-        const owner = await getMemberById(r.ownerId);
-        cache.set(r.ownerId, owner?.displayName || "");
-      }
-      r.ownerName = cache.get(r.ownerId);
-    }
-    return recipes;
   }
 
   async function loadAndRenderBody() {
@@ -821,5 +822,106 @@ export async function renderRecipeFormPage(container, params) {
       showToast("儲存失敗，請再試一次");
       saveBtn.disabled = false;
     }
+  });
+}
+
+/* ==========================================================
+   搜尋頁面（#/search）
+   ----------------------------------------------------------
+   範圍：自己私人 ＋ 全部公開，查菜名/標籤/食材。
+   預設依符合度排序，可切熱門；可加風格、時間篩選。
+   ========================================================== */
+export async function renderSearchPage(container) {
+  const member = getCurrentMember();
+  const state = { keyword: "", style: null, time: "all", sort: "relevance" };
+
+  container.innerHTML = `
+    <div class="page-head">
+      <button id="search-back" class="back-btn">${ICON_BACK}</button>
+      <h1>搜尋</h1>
+    </div>
+    <div class="search-input-row">
+      ${ICON_SEARCH}
+      <input type="text" id="search-input" placeholder="搜尋菜名、標籤、食材..." autofocus>
+    </div>
+    <div class="filter-trigger-row filter-trigger-row-multi">
+      <button type="button" id="search-style-filter" class="dropdown-field dropdown-field-compact">
+        <span>全部風格</span>${ICON_CHEV_DOWN}
+      </button>
+      <button type="button" id="search-time-filter" class="dropdown-field dropdown-field-compact">
+        <span>全部時間</span>${ICON_CHEV_DOWN}
+      </button>
+      <div class="sort-toggle" id="search-sort-toggle">
+        <button type="button" class="active" data-sort="relevance">最符合</button>
+        <button type="button" data-sort="hot">熱門</button>
+      </div>
+    </div>
+    <div id="search-results"><div class="empty-state">輸入關鍵字開始搜尋</div></div>
+  `;
+
+  document.getElementById("search-back").addEventListener("click", () => navigate("/recipes"));
+
+  async function runSearch() {
+    const resultsEl = document.getElementById("search-results");
+    if (!state.keyword.trim()) {
+      resultsEl.innerHTML = `<div class="empty-state">輸入關鍵字開始搜尋</div>`;
+      return;
+    }
+    resultsEl.innerHTML = `<div class="empty-state">搜尋中…</div>`;
+    try {
+      const results = await searchRecipes(member.uid, state);
+      if (results.length === 0) {
+        resultsEl.innerHTML = `<div class="empty-state">找不到符合的食譜，換個關鍵字試試？</div>`;
+        return;
+      }
+      await attachOwnerNames(results);
+      resultsEl.innerHTML = `<div class="recipe-grid">${results.map(recipeCardHtml).join("")}</div>`;
+    } catch (err) {
+      console.error(err);
+      resultsEl.innerHTML = `<div class="empty-state">搜尋失敗，請再試一次。</div>`;
+    }
+  }
+
+  const debouncedSearch = debounce(runSearch, 350);
+  document.getElementById("search-input").addEventListener("input", (e) => {
+    state.keyword = e.target.value;
+    debouncedSearch();
+  });
+
+  document.getElementById("search-style-filter").addEventListener("click", async () => {
+    const categories = await getStyleCategories();
+    openPickerSheet({
+      title: "依風格篩選",
+      options: [{ value: "", label: "全部" }, ...categories.map((s) => ({ value: s, label: s }))],
+      selected: state.style ? [state.style] : [""],
+      multiple: false,
+      onConfirm: ([value]) => {
+        state.style = value || null;
+        document.querySelector("#search-style-filter span").textContent = value || "全部風格";
+        runSearch();
+      },
+    });
+  });
+
+  document.getElementById("search-time-filter").addEventListener("click", () => {
+    openPickerSheet({
+      title: "依時間篩選",
+      options: TIME_FILTER_OPTIONS,
+      selected: [state.time],
+      multiple: false,
+      onConfirm: ([value]) => {
+        state.time = value;
+        document.querySelector("#search-time-filter span").textContent = TIME_FILTER_OPTIONS.find((o) => o.value === value)?.label || "全部時間";
+        runSearch();
+      },
+    });
+  });
+
+  document.querySelectorAll("#search-sort-toggle button").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.sort = btn.dataset.sort;
+      document.querySelectorAll("#search-sort-toggle button").forEach((b) => b.classList.toggle("active", b === btn));
+      runSearch();
+    });
   });
 }
