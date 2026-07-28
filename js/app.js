@@ -21,6 +21,8 @@ import { openLotteryFlow } from "./lottery.js";
 import { renderDiaryPage } from "./diary-pages.js";
 import { cleanupExpiredEntries } from "./diary.js";
 import { catchUpWeeklySummaries } from "./weekly-summary.js";
+import { getHomeWeatherDisplay } from "./weather.js";
+import { requestAutoLocation, setManualCity, getWeatherMode } from "./location.js";
 import { renderFriendsListPage, renderMemberProfilePage } from "./friends-pages.js";
 import { getCurrentChallenge, markChallengeComplete, createChallenge, endChallenge, autoExpireChallenges, listActiveChallenges, listEndedChallenges } from "./challenges.js";
 import { registerRoute, setBeforeEach, setOnRouteChange, startRouter, navigate } from "./router.js";
@@ -135,10 +137,7 @@ async function renderHomePage(container) {
           連續登入 ${member?.loginStreakCurrent || 1} 天
         </div>
       </div>
-      <div class="weather-line">
-        <svg class="icon" viewBox="0 0 24 24"><circle cx="9" cy="9" r="4"/><path d="M9 2v1.4M9 14.6V16M2 9h1.4M14.6 9H16M4 4l1 1M13 13l1 1M14 4l-1 1M5 13l-1 1"/></svg>
-        天氣功能開發中 <span class="weather-dot">・</span> <span class="weather-date">${dateLabel}</span>
-      </div>
+      <div id="home-weather"><div class="weather-line"><span class="weather-date">${dateLabel}</span></div></div>
     </div>
 
     <div class="lottery-wrap">
@@ -188,6 +187,7 @@ async function renderHomePage(container) {
 
   loadHomeRecipeSections();
   loadHomeChallenge();
+  loadHomeWeather();
 
   document.getElementById("lottery-btn").addEventListener("click", () => {
     openLotteryFlow();
@@ -196,6 +196,120 @@ async function renderHomePage(container) {
 
 const HOME_NO_PHOTO_ICON = '<svg class="icon" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M3 16l5-4 3 3 4-4 5 5"/></svg>';
 const HOME_HEART_ICON = '<svg class="icon" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 1 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78Z"/></svg>';
+
+const WEATHER_ICONS = {
+  sunny: '<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M4 12H2M22 12h-2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6L17 7M7 17l-1.4 1.4"/></svg>',
+  cloudy: '<svg class="icon" viewBox="0 0 24 24"><path d="M7 18a4 4 0 0 1 0-8 5.5 5.5 0 0 1 10.6-1.6A4 4 0 0 1 17 18H7Z"/></svg>',
+  rainy: '<svg class="icon" viewBox="0 0 24 24"><path d="M7 15a4 4 0 0 1 0-8 5.5 5.5 0 0 1 10.6-1.6A4 4 0 0 1 17 15H7Z"/><path d="M8 18l-1 2M12 18l-1 2M16 18l-1 2"/></svg>',
+  cold: '<svg class="icon" viewBox="0 0 24 24"><path d="M12 2v20M5.5 6l13 12M18.5 6l-13 12"/></svg>',
+  hot: '<svg class="icon" viewBox="0 0 24 24"><path d="M10 14V5a2 2 0 1 1 4 0v9a4 4 0 1 1-4 0Z"/><circle cx="12" cy="15.5" r="1" fill="currentColor" stroke="none"/></svg>',
+};
+const ICON_LOCATION_SM = '<svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M12 21s-7-5.5-7-11a7 7 0 0 1 14 0c0 5.5-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>';
+
+async function loadHomeWeather() {
+  const el = document.getElementById("home-weather");
+  if (!el) return;
+
+  const weekday = ["日", "一", "二", "三", "四", "五", "六"][new Date().getDay()];
+  const dateLabel = `${new Date().getMonth() + 1} 月 ${new Date().getDate()} 日星期${weekday}`;
+
+  try {
+    const w = await getHomeWeatherDisplay();
+
+    if (w.needsLocationPrompt) {
+      el.innerHTML = `
+        <div class="weather-prompt">
+          ${ICON_LOCATION_SM}
+          <span>開啟定位就能看到今天的天氣</span>
+          <div class="weather-prompt-actions">
+            <button type="button" id="weather-allow-btn" class="weather-prompt-btn">開啟定位</button>
+            <button type="button" id="weather-manual-btn" class="weather-prompt-btn weather-prompt-btn-ghost">手動選城市</button>
+          </div>
+        </div>
+      `;
+      document.getElementById("weather-allow-btn").addEventListener("click", async () => {
+        const coords = await requestAutoLocation();
+        if (coords) {
+          loadHomeWeather();
+        } else {
+          showToast("定位被拒絕了，改用手動選城市吧");
+          loadHomeWeather();
+        }
+      });
+      document.getElementById("weather-manual-btn").addEventListener("click", () => openManualCityPrompt());
+      return;
+    }
+
+    if (w.noData) {
+      el.innerHTML = `<div class="weather-line"><span class="weather-date">${dateLabel}</span></div><div class="weather-quote">${w.quote}</div>`;
+      return;
+    }
+
+    const icon = WEATHER_ICONS[w.category] || WEATHER_ICONS.cloudy;
+    el.innerHTML = `
+      <div class="weather-line">
+        ${icon}
+        ${w.cityName ? `${w.cityName}・` : ""}${w.temp}°C
+        <span class="weather-dot">・</span>
+        <span class="weather-date">${dateLabel}</span>
+        ${w.stale ? '<span class="weather-stale">（天氣資料更新中）</span>' : ""}
+      </div>
+      <div class="weather-quote">${w.quote}</div>
+    `;
+  } catch (err) {
+    console.error(err);
+    el.innerHTML = `<div class="weather-line"><span class="weather-date">${dateLabel}</span></div>`;
+  }
+}
+
+function openManualCityPrompt() {
+  const overlay = document.createElement("div");
+  overlay.className = "picker-overlay";
+  overlay.innerHTML = `
+    <div class="picker-box">
+      <button type="button" class="dialog-close picker-close" aria-label="關閉">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+      <div class="sheet-title">選擇城市</div>
+      <div class="field" style="margin-bottom:0">
+        <input type="text" id="manual-city-input" placeholder="例如：台北、高雄">
+      </div>
+      <button type="button" id="manual-city-confirm" class="sheet-confirm" style="margin-top:14px">確定</button>
+    </div>
+  `;
+  overlay.querySelector(".picker-close").addEventListener("click", () => overlay.remove());
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) overlay.remove();
+  });
+  document.body.appendChild(overlay);
+
+  document.getElementById("manual-city-confirm").addEventListener("click", async () => {
+    const city = document.getElementById("manual-city-input").value.trim();
+    if (!city) return;
+    try {
+      await setManualCity(city);
+      overlay.remove();
+      loadHomeWeather();
+    } catch (err) {
+      console.error(err);
+      showToast(err.message || "查詢失敗，請再試一次");
+    }
+  });
+}
+
+function updateWeatherModeLabel() {
+  const label = document.getElementById("weather-mode-label");
+  if (!label) return;
+  const mode = getWeatherMode();
+  label.textContent = mode === "auto" ? "自動定位" : mode === "manual" ? "手動選城市" : "尚未設定";
+}
+
+function openManualCityPromptInSettings() {
+  openManualCityPrompt();
+  // openManualCityPrompt 內部成功後會呼叫 loadHomeWeather()（在設定頁找不到首頁容器會自動跳過，不會出錯）
+  // 這裡額外等一下再更新設定頁上的模式文字
+  setTimeout(updateWeatherModeLabel, 600);
+}
 
 function homeRecipeCardHtml(recipe) {
   const styleTags = (recipe.styles || []).slice(0, 2).map((s) => `<span>${s}</span>`).join("");
@@ -539,6 +653,17 @@ function renderSettingsPage(container) {
       </div>
     </div>
 
+    <div class="settings-group">
+      <div class="settings-group-title">${ICON_CLOUD}天氣</div>
+      <div class="settings-card">
+        <p class="form-hint" style="margin:0 0 10px">目前模式：<strong id="weather-mode-label">讀取中…</strong></p>
+        <div style="display:flex;gap:8px">
+          <button type="button" id="weather-switch-auto" class="btn btn-ghost" style="flex:1">切回自動定位</button>
+          <button type="button" id="weather-switch-manual" class="btn btn-ghost" style="flex:1">改成手動選城市</button>
+        </div>
+      </div>
+    </div>
+
     ${
       isAdmin()
         ? `<div class="settings-group">
@@ -604,6 +729,20 @@ function renderSettingsPage(container) {
         showToast("主題已套用，但存到帳號失敗，換裝置可能要重選");
       }
     });
+  });
+
+  updateWeatherModeLabel();
+  document.getElementById("weather-switch-auto").addEventListener("click", async () => {
+    const coords = await requestAutoLocation();
+    if (coords) {
+      showToast("已切回自動定位");
+    } else {
+      showToast("瀏覽器沒有再次詢問授權（可能之前拒絕過），請到瀏覽器網址列的鎖頭圖示手動開啟定位權限");
+    }
+    updateWeatherModeLabel();
+  });
+  document.getElementById("weather-switch-manual").addEventListener("click", () => {
+    openManualCityPromptInSettings();
   });
 
   document.getElementById("settings-logout-btn").addEventListener("click", async () => {
