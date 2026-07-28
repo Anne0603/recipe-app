@@ -22,9 +22,10 @@ import {
   toggleLike,
 } from "./recipes.js";
 import { uploadRecipeImage } from "./recipe-images.js";
-import { getCurrentMember, getMemberById } from "./auth.js";
+import { getCurrentMember, getMemberById, isAdmin } from "./auth.js";
 import { navigate } from "./router.js";
 import { showToast, showConfirm, openPickerSheet } from "./utils.js";
+import { createComment, listCommentsForRecipe, deleteComment, toggleCommentLike } from "./comments.js";
 
 /* ---------------------------------------------------------
    共用小圖示／小工具
@@ -45,6 +46,8 @@ const ICON_CAMERA = '<svg class="icon" viewBox="0 0 24 24"><rect x="3" y="6" wid
 const ICON_SEARCH = '<svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>';
 const ICON_FILTER = '<svg class="icon" viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4"/></svg>';
 const ICON_PIN = '<svg class="icon" viewBox="0 0 24 24"><path d="M12 2l2 6h6l-5 4 2 6-5-4-5 4 2-6-5-4h6z"/></svg>';
+const ICON_COMMENT = '<svg class="icon" viewBox="0 0 24 24"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/></svg>';
+const ICON_SEND = '<svg class="icon" viewBox="0 0 24 24"><path d="M4 12h16M14 6l6 6-6 6"/></svg>';
 
 function initials(name) {
   return (name || "?").trim().slice(0, 1);
@@ -304,8 +307,12 @@ export async function renderRecipeDetailPage(container, params) {
       ${
         recipe.isPublic
           ? `<div class="detail-section">
-              <h3>留言</h3>
-              <div class="empty-state">留言功能還沒實作，等「21｜留言按讚」規格討論後再加上。</div>
+              <h3>${ICON_COMMENT}留言</h3>
+              <div id="comment-list"><div class="empty-state">載入中…</div></div>
+              <div class="comment-input-row">
+                <input type="text" id="comment-input" placeholder="留言...">
+                <button type="button" id="comment-send" class="comment-send">${ICON_SEND}</button>
+              </div>
             </div>`
           : ""
       }
@@ -362,6 +369,96 @@ export async function renderRecipeDetailPage(container, params) {
         showToast("刪除失敗，請再試一次");
       }
     });
+  }
+
+  if (recipe.isPublic) {
+    await loadAndRenderComments(recipe.id, member);
+
+    document.getElementById("comment-send").addEventListener("click", async () => {
+      const input = document.getElementById("comment-input");
+      const content = input.value.trim();
+      if (!content) return;
+      try {
+        await createComment(recipe.id, member.uid, content);
+        input.value = "";
+        await loadAndRenderComments(recipe.id, member);
+      } catch (err) {
+        console.error(err);
+        showToast("留言失敗，請再試一次");
+      }
+    });
+    document.getElementById("comment-input").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") document.getElementById("comment-send").click();
+    });
+  }
+}
+
+async function loadAndRenderComments(recipeId, member) {
+  const listEl = document.getElementById("comment-list");
+  if (!listEl) return;
+  try {
+    const comments = await listCommentsForRecipe(recipeId);
+    if (comments.length === 0) {
+      listEl.innerHTML = `<p class="form-hint">還沒有留言，第一個留言吧！</p>`;
+      return;
+    }
+    const authorCache = new Map();
+    for (const c of comments) {
+      if (!authorCache.has(c.authorId)) {
+        const author = await getMemberById(c.authorId);
+        authorCache.set(c.authorId, author?.displayName || "朋友");
+      }
+    }
+    listEl.innerHTML = comments
+      .map((c) => {
+        const authorName = authorCache.get(c.authorId);
+        const liked = (c.likedBy || []).includes(member?.uid);
+        const canDelete = c.authorId === member?.uid || isAdmin();
+        return `
+          <div class="comment-row" data-id="${c.id}">
+            <div class="comment-avatar">${initials(authorName)}</div>
+            <div class="comment-bubble">
+              <div class="comment-name">${authorName}</div>
+              <div class="comment-text">${c.content}</div>
+              <div class="comment-actions">
+                <button type="button" class="comment-like-btn ${liked ? "liked" : ""}" data-id="${c.id}">${liked ? ICON_HEART_FILLED : ICON_HEART} ${(c.likedBy || []).length}</button>
+                ${canDelete ? `<button type="button" class="comment-del-btn" data-id="${c.id}">刪除</button>` : ""}
+              </div>
+            </div>
+          </div>`;
+      })
+      .join("");
+
+    listEl.querySelectorAll(".comment-like-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        btn.disabled = true;
+        try {
+          await toggleCommentLike(btn.dataset.id, member.uid);
+          await loadAndRenderComments(recipeId, member);
+        } catch (err) {
+          console.error(err);
+          showToast("操作失敗，請再試一次");
+          btn.disabled = false;
+        }
+      });
+    });
+
+    listEl.querySelectorAll(".comment-del-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const ok = await showConfirm("確定要刪除這則留言嗎？此動作無法復原。");
+        if (!ok) return;
+        try {
+          await deleteComment(btn.dataset.id, recipeId);
+          await loadAndRenderComments(recipeId, member);
+        } catch (err) {
+          console.error(err);
+          showToast("刪除失敗，請再試一次");
+        }
+      });
+    });
+  } catch (err) {
+    console.error(err);
+    listEl.innerHTML = `<div class="empty-state">留言載入失敗，請稍後再試。</div>`;
   }
 }
 

@@ -14,9 +14,8 @@
    自動刪除（討論過的架構限制：unsigned 上傳沒有對應的安全刪除方式，
    純前端拿不到 API Secret，免費額度夠用，先接受這個取捨）。
 
-   TODO（等 21｜留言按讚 開工時要記得回來接）：
-   - 留言新增/刪除時要更新 commentCount 並重算 popularityScore
-   （17｜料理日記那項已經接好，見下方 incrementDiaryUsage）
+   （17｜料理日記、21｜留言按讚 這兩項的計數邏輯都已經接好，
+   見 incrementDiaryUsage、adjustCommentCount）
    ========================================================== */
 
 import {
@@ -219,4 +218,21 @@ export async function incrementDiaryUsage(recipeId) {
     commentCount: recipe.commentCount || 0,
   });
   await updateRecipe(recipeId, { diaryUsageCount, popularityScore });
+}
+
+/**
+ * 21｜留言按讚：留言新增/刪除時呼叫這個，commentCount 加減並重算熱門分數。
+ * @param {number} delta +1（新增留言）或 -1（刪除留言）
+ */
+export async function adjustCommentCount(recipeId, delta) {
+  const recipe = await getRecipe(recipeId);
+  if (!recipe) return; // 食譜可能已被刪除，安靜略過
+
+  const commentCount = Math.max(0, (recipe.commentCount || 0) + delta);
+  const popularityScore = computePopularityScore({
+    likedBy: recipe.likedBy || [],
+    diaryUsageCount: recipe.diaryUsageCount || 0,
+    commentCount,
+  });
+  await updateRecipe(recipeId, { commentCount, popularityScore });
 }

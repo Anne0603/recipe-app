@@ -477,6 +477,26 @@
 .diary-del-btn { background: none; border: none; color: var(--color-berry); cursor: pointer; padding: 2px; flex-shrink: 0; }
 
 /* ==========================================================
+   21｜留言按讚
+   ========================================================== */
+.comment-row { display: flex; gap: 8px; margin-bottom: 12px; }
+.comment-avatar { width: 26px; height: 26px; border-radius: 50%; background: var(--color-sage-bg); color: var(--color-sage); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+.comment-bubble { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 12px; padding: 9px 12px; flex: 1; }
+.comment-name { font-size: 12px; font-weight: 700; }
+.comment-text { font-size: 13px; margin-top: 3px; line-height: 1.55; word-break: break-word; }
+.comment-actions { display: flex; align-items: center; gap: 14px; margin-top: 6px; }
+.comment-like-btn { display: flex; align-items: center; gap: 4px; background: none; border: none; font-family: inherit; font-size: 11.5px; color: var(--color-text-muted); cursor: pointer; padding: 0; }
+.comment-like-btn .icon { width: 13px; height: 13px; }
+.comment-like-btn.liked { color: var(--color-berry); }
+.comment-like-btn.liked .icon { color: var(--color-berry); }
+.comment-del-btn { background: none; border: none; font-family: inherit; font-size: 11.5px; color: var(--color-text-muted); cursor: pointer; padding: 0; text-decoration: underline; }
+
+.comment-input-row { display: flex; gap: 8px; margin-top: 10px; }
+.comment-input-row input { flex: 1; border: 1px solid var(--color-border); border-radius: 999px; padding: 10px 16px; font-size: 13px; font-family: inherit; background: var(--color-surface); color: var(--color-text); }
+.comment-send { width: 38px; height: 38px; border-radius: 50%; background: var(--color-primary); color: #fff; border: none; display: flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer; }
+.comment-send .icon { width: 17px; height: 17px; }
+
+/* ==========================================================
    09｜抽籤
    ========================================================== */
 .lottery-filter-row { margin-bottom: 14px; }
