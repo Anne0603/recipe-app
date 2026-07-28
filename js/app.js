@@ -161,19 +161,14 @@ async function renderHomePage(container) {
     <div class="home-section">
       <div class="home-section-head">
         <svg class="icon" viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4Z"/><path d="M7 6H4a3 3 0 0 0 3 5M17 6h3a3 3 0 0 1-3 5"/></svg>
-        <h2>熱門食譜</h2>
-        <a href="#/recipes?sort=hot" class="more">看全部 ›</a>
+        <h2>食譜精選</h2>
+        <a href="#/recipes" id="home-recipes-more" class="more">看全部 ›</a>
       </div>
-      <div id="home-hot-recipes"><div class="empty-state">載入中…</div></div>
-    </div>
-
-    <div class="home-section">
-      <div class="home-section-head">
-        <svg class="icon" viewBox="0 0 24 24"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2 20c0-3.3 2.7-6 6-6s6 2.7 6 6M14 20c0-2.5 1.8-4.5 4-4.5s4 2 4 4.5"/></svg>
-        <h2>朋友新分享</h2>
-        <a href="#/recipes?sort=recent" class="more">看全部 ›</a>
+      <div class="segment segment-sm" id="home-recipes-toggle" style="margin:0 16px 12px">
+        <button type="button" data-sort="recent" class="active">最新</button>
+        <button type="button" data-sort="hot">熱門</button>
       </div>
-      <div id="home-recent-recipes"><div class="empty-state">載入中…</div></div>
+      <div id="home-recipes"><div class="empty-state">載入中…</div></div>
     </div>
 
     <div class="home-section">
@@ -332,25 +327,37 @@ function homeRecipeCardHtml(recipe) {
 }
 
 async function loadHomeRecipeSections() {
-  const hotEl = document.getElementById("home-hot-recipes");
-  const recentEl = document.getElementById("home-recent-recipes");
-  if (!hotEl || !recentEl) return; // 使用者可能已經換頁
+  const el = document.getElementById("home-recipes");
+  if (!el) return; // 使用者可能已經換頁
 
-  try {
-    const [hot, recent] = await Promise.all([getTopPublicRecipes(4), getRecentPublicRecipes(4)]);
+  let currentSort = "recent";
 
-    hotEl.innerHTML = hot.length
-      ? `<div class="recipe-grid">${hot.map(homeRecipeCardHtml).join("")}</div>`
-      : `<div class="empty-state">還沒有公開食譜，等大家分享後這裡會顯示最多人收藏的菜色。</div>`;
+  async function render(sort) {
+    currentSort = sort;
+    const moreLink = document.getElementById("home-recipes-more");
+    if (moreLink) moreLink.href = `#/recipes?sort=${sort}`;
 
-    recentEl.innerHTML = recent.length
-      ? `<div class="recipe-grid">${recent.map(homeRecipeCardHtml).join("")}</div>`
-      : `<div class="empty-state">還沒有公開食譜，等朋友發布新食譜後會顯示在這裡。</div>`;
-  } catch (err) {
-    console.error(err);
-    hotEl.innerHTML = `<div class="empty-state">載入失敗，請稍後再試。</div>`;
-    recentEl.innerHTML = `<div class="empty-state">載入失敗，請稍後再試。</div>`;
+    el.innerHTML = `<div class="empty-state">載入中…</div>`;
+    try {
+      const recipes = sort === "hot" ? await getTopPublicRecipes(4) : await getRecentPublicRecipes(4);
+      el.innerHTML = recipes.length
+        ? `<div class="recipe-grid">${recipes.map(homeRecipeCardHtml).join("")}</div>`
+        : `<div class="empty-state">${sort === "hot" ? "還沒有公開食譜，等大家分享後這裡會顯示最多人收藏的菜色。" : "還沒有公開食譜，等朋友發布新食譜後會顯示在這裡。"}</div>`;
+    } catch (err) {
+      console.error(err);
+      el.innerHTML = `<div class="empty-state">載入失敗，請稍後再試。</div>`;
+    }
   }
+
+  document.querySelectorAll("#home-recipes-toggle button").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (btn.dataset.sort === currentSort) return;
+      document.querySelectorAll("#home-recipes-toggle button").forEach((b) => b.classList.toggle("active", b === btn));
+      render(btn.dataset.sort);
+    });
+  });
+
+  render("recent");
 }
 
 /** 管理員登入時，如果有待審核的挑戰申請，主動跳提示提醒（純前端能做到的最接近「通知」的做法） */
