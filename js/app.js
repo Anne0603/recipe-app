@@ -42,10 +42,10 @@ const ICON_CAMERA_SM = '<svg class="icon" viewBox="0 0 24 24" style="width:12px;
 
 const THEME_OPTIONS = [
   { value: "terracotta", label: "陶土橘", swatch: "#D9773F" },
-  { value: "sage", label: "鼠尾草綠", swatch: "#8A9A7E" },
-  { value: "blue-grey", label: "霧藍灰", swatch: "#7B93A0" },
-  { value: "rose", label: "霧玫瑰", swatch: "#B98A88" },
-  { value: "taupe", label: "奶茶駝", swatch: "#A98F6E" },
+  { value: "sage", label: "鼠尾草綠", swatch: "#7A9B5E" },
+  { value: "blue-grey", label: "霧藍灰", swatch: "#5B84A0" },
+  { value: "rose", label: "霧玫瑰", swatch: "#C97B82" },
+  { value: "taupe", label: "奶茶駝", swatch: "#B8874F" },
 ];
 
 function applyTheme(theme) {

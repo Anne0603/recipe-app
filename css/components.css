@@ -481,15 +481,15 @@
 .todo-note { background: #fff8ea; border: 1px dashed var(--color-butter); color: #7a5c1c; font-size: 11px; border-radius: 8px; padding: 8px 10px; margin-top: 6px; line-height: 1.5; }
 
 /* ---------- 設定頁：外觀主題選擇 ---------- */
-.theme-swatch-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.theme-swatch-row { display: flex; gap: 6px; }
 .theme-swatch-btn {
-  display: flex; flex-direction: column; align-items: center; gap: 6px;
-  background: var(--color-surface); border: 1.5px solid var(--color-border); border-radius: 14px;
-  padding: 10px 12px; font-family: inherit; cursor: pointer; width: 80px;
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  background: var(--color-surface); border: 1.5px solid var(--color-border); border-radius: 12px;
+  padding: 8px 2px; font-family: inherit; cursor: pointer; flex: 1; min-width: 0;
 }
 .theme-swatch-btn.selected { border-color: var(--color-primary); background: var(--color-primary-bg); }
-.theme-swatch-dot { width: 28px; height: 28px; border-radius: 50%; display: block; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.06); }
-.theme-swatch-label { font-size: 11px; color: var(--color-text); font-weight: 700; text-align: center; }
+.theme-swatch-dot { width: 22px; height: 22px; border-radius: 50%; display: block; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.06); }
+.theme-swatch-label { font-size: 9.5px; color: var(--color-text); font-weight: 700; text-align: center; white-space: nowrap; }
 
 /* ==========================================================
    設定頁／管理設定頁：卡片式版面
