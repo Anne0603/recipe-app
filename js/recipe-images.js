@@ -2,7 +2,7 @@
    recipe-images.js — 對應需求文件「05｜食譜圖片」
    ----------------------------------------------------------
    Cloudinary unsigned 上傳。cloud name／upload preset 從
-   app-settings.js 讀（管理員在「服務設定」頁填的那份 Firestore 設定），
+   app-settings.js 讀（管理員在「管理設定」頁填的那份 Firestore 設定），
    不是從 config.js 讀（config.js 只放 Firebase 連線用的值）。
 
    只支援上傳，不支援刪除（見 recipes.js 檔頭說明的架構限制）。
@@ -21,7 +21,7 @@ export async function uploadRecipeImage(file) {
 
   if (!cloudinaryCloudName || !cloudinaryUploadPreset) {
     throw new Error(
-      "Cloudinary 還沒設定，請管理員先到「服務設定」頁填入 Cloud name 與 Upload preset"
+      "Cloudinary 還沒設定，請管理員先到「管理設定」頁填入 Cloud name 與 Upload preset"
     );
   }
 

@@ -12,7 +12,7 @@ import { listMyOwnRecipes, listPublicRecipes, listMyCollectedRecipes, getStyleCa
 import { getCurrentMember } from "./auth.js";
 import { showToast, showConfirm, openPickerSheet } from "./utils.js";
 import { navigate } from "./router.js";
-import { createDiaryEntry, todayDateStr } from "./diary.js";
+import { createDiaryEntry, todayDateStr, MEAL_OPTIONS } from "./diary.js";
 
 /** 抽籤決定後要記日記時，依現在時間猜一個合理的餐別（早餐/午餐/晚餐），使用者沒有另外被問這題 */
 function guessMealByTime() {
@@ -105,6 +105,9 @@ function showResultCard(candidates, filters) {
     const tags = (current.styles || []).map((s) => `<span>${s}</span>`).join("");
     overlay.innerHTML = `
       <div class="picker-box lottery-result-box">
+        <button type="button" class="dialog-close picker-close" aria-label="關閉">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
         <div class="lottery-result-cover" style="${current.coverImageUrl ? `background-image:url('${current.coverImageUrl}')` : ""}">
           ${current.coverImageUrl ? "" : ICON_NO_PHOTO}
         </div>
@@ -122,27 +125,36 @@ function showResultCard(candidates, filters) {
       </div>
     `;
 
+    overlay.querySelector(".picker-close").addEventListener("click", () => overlay.remove());
     document.getElementById("lottery-redraw").addEventListener("click", drawNext);
 
     document.getElementById("lottery-confirm").addEventListener("click", async () => {
       const wantsDiary = await showConfirm("要記錄到今天的料理日記嗎？");
       overlay.remove();
       if (wantsDiary) {
-        try {
-          const member = getCurrentMember();
-          await createDiaryEntry(member.uid, {
-            date: todayDateStr(),
-            meal: guessMealByTime(),
-            inputType: "recipe",
-            recipeId: current.id,
-            name: current.name,
-            servings: current.servings ?? null,
-          });
-          showToast("已記錄到今天的料理日記");
-        } catch (err) {
-          console.error(err);
-          showToast("記錄失敗，請再試一次");
-        }
+        openPickerSheet({
+          title: "這是哪一餐？",
+          options: MEAL_OPTIONS,
+          selected: [guessMealByTime()],
+          multiple: false,
+          onConfirm: async ([meal]) => {
+            try {
+              const member = getCurrentMember();
+              await createDiaryEntry(member.uid, {
+                date: todayDateStr(),
+                meal,
+                inputType: "recipe",
+                recipeId: current.id,
+                name: current.name,
+                servings: current.servings ?? null,
+              });
+              showToast("已記錄到今天的料理日記");
+            } catch (err) {
+              console.error(err);
+              showToast("記錄失敗，請再試一次");
+            }
+          },
+        });
       }
     });
 
@@ -172,6 +184,9 @@ function openFilterModal(initialFilters) {
   function render() {
     overlay.innerHTML = `
       <div class="picker-box">
+        <button type="button" class="dialog-close picker-close" aria-label="關閉">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
         <div class="sheet-title">抽籤條件</div>
 
         <div class="lottery-filter-row">
@@ -199,6 +214,8 @@ function openFilterModal(initialFilters) {
         <button type="button" id="lf-start" class="sheet-confirm">${ICON_DICE}開始抽籤</button>
       </div>
     `;
+
+    overlay.querySelector(".picker-close").addEventListener("click", () => overlay.remove());
 
     document.getElementById("lf-source").addEventListener("click", () => {
       openPickerSheet({

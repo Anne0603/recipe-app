@@ -12,6 +12,7 @@ export function showConfirm(message) {
   const messageEl = document.getElementById("confirm-dialog-message");
   const okBtn = document.getElementById("confirm-dialog-ok");
   const cancelBtn = document.getElementById("confirm-dialog-cancel");
+  const closeBtn = document.getElementById("confirm-dialog-close");
 
   messageEl.textContent = message;
   overlay.classList.remove("hidden");
@@ -21,6 +22,7 @@ export function showConfirm(message) {
       overlay.classList.add("hidden");
       okBtn.removeEventListener("click", onOk);
       cancelBtn.removeEventListener("click", onCancel);
+      closeBtn.removeEventListener("click", onCancel);
       resolve(result);
     }
     function onOk() {
@@ -31,6 +33,7 @@ export function showConfirm(message) {
     }
     okBtn.addEventListener("click", onOk);
     cancelBtn.addEventListener("click", onCancel);
+    closeBtn.addEventListener("click", onCancel);
   });
 }
 
@@ -88,6 +91,9 @@ export function openPickerSheet({ title, options, selected, multiple, onConfirm 
 
   overlay.innerHTML = `
     <div class="picker-box">
+      <button type="button" class="dialog-close picker-close" aria-label="關閉">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
       <div class="sheet-title">${title}</div>
       <div class="sheet-opts">${renderOpts()}</div>
       ${multiple ? '<button type="button" class="sheet-confirm">確定</button>' : ""}
@@ -97,6 +103,8 @@ export function openPickerSheet({ title, options, selected, multiple, onConfirm 
   function close() {
     overlay.remove();
   }
+
+  overlay.querySelector(".picker-close").addEventListener("click", close);
 
   overlay.addEventListener("click", (e) => {
     if (e.target === overlay) close();

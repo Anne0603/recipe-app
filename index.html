@@ -53,6 +53,9 @@
   <!-- 全站共用：確認刪除等提示框，由 utils.js 控制顯示 -->
   <div id="confirm-dialog" class="dialog-overlay hidden">
     <div class="dialog-box">
+      <button id="confirm-dialog-close" class="dialog-close" aria-label="關閉">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
       <p id="confirm-dialog-message"></p>
       <div class="dialog-actions">
         <button id="confirm-dialog-cancel" class="btn btn-ghost">取消</button>

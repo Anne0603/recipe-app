@@ -309,7 +309,7 @@
 
 /* ---------- 彈出選單（置中視窗，跟刪除確認框同一種風格） ---------- */
 .picker-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 24px; }
-.picker-box { width: 100%; max-width: 340px; background: var(--color-surface); border-radius: var(--radius-lg); padding: 18px 18px 16px; max-height: 78vh; overflow-y: auto; }
+.picker-box { position: relative; width: 100%; max-width: 340px; background: var(--color-surface); border-radius: var(--radius-lg); padding: 22px 18px 16px; max-height: 78vh; overflow-y: auto; }
 .sheet-title { font-family: var(--font-display); font-weight: 700; font-size: 15px; margin-bottom: 10px; }
 .sheet-opt { display: flex; align-items: center; gap: 10px; padding: 12px 4px; border-bottom: 1px solid var(--color-border); font-size: 14px; cursor: pointer; }
 .sheet-opt:last-child { border-bottom: none; }
@@ -445,7 +445,8 @@
 .cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .cal-nav-btn { width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--color-border); background: var(--color-surface); display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .cal-nav-btn .icon { width: 16px; height: 16px; color: var(--color-text); }
-.cal-title { font-family: var(--font-display); font-weight: 700; font-size: 15px; }
+.cal-title { font-family: var(--font-display); font-weight: 700; font-size: 15px; background: none; border: none; color: var(--color-text); font-family: var(--font-display); cursor: pointer; padding: 4px 10px; border-radius: 8px; }
+.cal-title:active { background: var(--color-primary-bg); }
 
 .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
 .cal-weekday-row { margin-bottom: 4px; }

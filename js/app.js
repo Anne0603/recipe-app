@@ -225,7 +225,7 @@ async function loadHomeRecipeSections() {
 }
 
 /* ---------------------------------------------------------
-   服務設定頁面（#/app-config）— 管理員填 Cloudinary／天氣金鑰
+   管理設定頁面（#/app-config）— 管理員填 Cloudinary／天氣金鑰
    ----------------------------------------------------------
    存進 Firestore 共用設定，之後上傳圖片、天氣功能都從這裡讀。
    目前用 isAdmin() 擋畫面，不是真正的安全防線（Firestore 規則
@@ -242,9 +242,9 @@ async function renderAppConfigPage(container) {
 
   container.innerHTML = `
     <div class="setup-wizard">
-      <h1>服務設定</h1>
+      <h1>管理設定</h1>
       <p class="setup-intro">
-        這裡填的值全部人共用一份，存在 Firestore，換金鑰不用碰程式碼、不用重新部署。
+        管理員專屬的全站設定，包含第三方服務金鑰和 APP 的一些行為規則，全部人共用一份，存在 Firestore，改了不用碰程式碼、不用重新部署。
       </p>
       <div class="setup-section">
         <h2>Cloudinary（食譜圖片）</h2>
@@ -295,7 +295,7 @@ async function renderAppConfigPage(container) {
 /* ---------------------------------------------------------
    設定頁（#/settings）
    ----------------------------------------------------------
-   目前只放登出、管理員專屬的服務設定入口。
+   目前只放登出、管理員專屬的管理設定入口。
    個人化設定（通知開關、Discord Webhook 等）之後功能討論到
    再補進來。
 --------------------------------------------------------- */
@@ -321,7 +321,7 @@ function renderSettingsPage(container) {
         </div>
       </div>
 
-      ${isAdmin() ? '<div class="setup-section"><a href="#/app-config" class="btn btn-ghost">服務設定（Cloudinary／天氣金鑰）</a></div>' : ""}
+      ${isAdmin() ? '<div class="setup-section"><a href="#/app-config" class="btn btn-ghost">管理設定（服務金鑰／料理日記等）</a></div>' : ""}
       <div class="setup-section">
         <button id="settings-logout-btn" class="btn btn-danger">登出</button>
       </div>

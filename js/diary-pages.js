@@ -77,7 +77,7 @@ export async function renderDiaryPage(container) {
     return `
       <div class="cal-header">
         <button type="button" id="cal-prev" class="cal-nav-btn">${ICON_CHEV_LEFT}</button>
-        <div class="cal-title">${state.year} 年 ${state.month + 1} 月</div>
+        <button type="button" id="cal-title-btn" class="cal-title">${state.year} 年 ${state.month + 1} 月</button>
         <button type="button" id="cal-next" class="cal-nav-btn">${ICON_CHEV_RIGHT}</button>
       </div>
       <div class="cal-grid cal-weekday-row">
@@ -147,6 +147,33 @@ export async function renderDiaryPage(container) {
       render();
     });
 
+    document.getElementById("cal-title-btn").addEventListener("click", () => {
+      const thisYear = today.getFullYear();
+      const yearOptions = [];
+      for (let y = thisYear - 3; y <= thisYear + 1; y++) yearOptions.push({ value: String(y), label: `${y} 年` });
+
+      openPickerSheet({
+        title: "選擇年份",
+        options: yearOptions,
+        selected: [String(state.year)],
+        multiple: false,
+        onConfirm: ([yearStr]) => {
+          const monthOptions = Array.from({ length: 12 }, (_, i) => ({ value: String(i), label: `${i + 1} 月` }));
+          openPickerSheet({
+            title: "選擇月份",
+            options: monthOptions,
+            selected: [String(state.month)],
+            multiple: false,
+            onConfirm: ([monthStr]) => {
+              state.year = Number(yearStr);
+              state.month = Number(monthStr);
+              render();
+            },
+          });
+        },
+      });
+    });
+
     body.querySelectorAll(".cal-cell[data-date]").forEach((btn) => {
       btn.addEventListener("click", () => {
         state.selectedDate = btn.dataset.date;
@@ -182,6 +209,9 @@ export async function renderDiaryPage(container) {
     function renderModal() {
       overlay.innerHTML = `
         <div class="picker-box">
+          <button type="button" class="dialog-close picker-close" aria-label="關閉">
+            <svg class="icon" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
           <div class="sheet-title">新增日記（${mealLabelOf(meal)}）</div>
 
           <div class="segment segment-sm" id="diary-input-type">
@@ -211,6 +241,8 @@ export async function renderDiaryPage(container) {
           <button type="button" id="diary-save-entry" class="sheet-confirm">儲存</button>
         </div>
       `;
+
+      overlay.querySelector(".picker-close").addEventListener("click", () => overlay.remove());
 
       overlay.querySelectorAll("#diary-input-type button").forEach((btn) => {
         btn.addEventListener("click", () => {
