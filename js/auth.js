@@ -65,9 +65,12 @@ export async function resolveMember(firebaseUser) {
     return "disabled";
   }
 
-  // 同步 Google 頭貼（每次登入都更新，因為大頭貼可能換）；displayName 只在管理員沒手動填時才自動帶入
+  // 同步 Google 頭貼（每次登入都更新，因為大頭貼可能換）；
+  // 但如果使用者已經自己在 APP 裡換過大頭貼（hasCustomAvatar），就不要再被 Google 的蓋回去
+  // displayName 只在管理員沒手動填時才自動帶入
   // 補上「加入時間」：如果這筆資料還沒有 joinedAt（例如手動建的第一個管理員帳號），這裡補記第一次成功登入的時間
-  const syncUpdates = { lastLoginAt: serverTimestamp(), photoURL: firebaseUser.photoURL || "" };
+  const syncUpdates = { lastLoginAt: serverTimestamp() };
+  if (!data.hasCustomAvatar) syncUpdates.photoURL = firebaseUser.photoURL || "";
   if (!data.displayName) syncUpdates.displayName = firebaseUser.displayName || "";
   if (!data.joinedAt) syncUpdates.joinedAt = serverTimestamp();
   await setDoc(memberRef, syncUpdates, { merge: true });
@@ -75,10 +78,19 @@ export async function resolveMember(firebaseUser) {
   currentMember = {
     uid: firebaseUser.uid,
     ...data,
-    photoURL: syncUpdates.photoURL,
+    photoURL: syncUpdates.photoURL ?? data.photoURL,
     displayName: data.displayName || syncUpdates.displayName || "",
   };
   return "ok";
+}
+
+/** 使用者自己在 APP 裡換大頭貼（存進 Cloudinary 的圖片網址），換過之後 Google 頭貼就不會再蓋回來 */
+export async function updateMyAvatar(photoURL) {
+  if (!currentMember) return;
+  const db = getDbInstance();
+  await setDoc(doc(db, "users", currentMember.uid), { photoURL, hasCustomAvatar: true }, { merge: true });
+  currentMember.photoURL = photoURL;
+  currentMember.hasCustomAvatar = true;
 }
 
 /** 監聽登入狀態變化，callback 收到 firebaseUser（未登入為 null） */

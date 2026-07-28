@@ -12,8 +12,9 @@
 
 import { isConfigComplete, getMissingFields } from "./config-check.js";
 import { initFirebase } from "./firebase-init.js";
-import { signInWithGoogle, signOutUser, resolveMember, watchAuthState, getCurrentMember, isAdmin, updateMyTheme } from "./auth.js";
+import { signInWithGoogle, signOutUser, resolveMember, watchAuthState, getCurrentMember, isAdmin, updateMyTheme, updateMyAvatar } from "./auth.js";
 import { getAppSettings, saveAppSettings, isAppSettingsComplete } from "./app-settings.js";
+import { uploadRecipeImage } from "./recipe-images.js";
 import { renderRecipeListPage, renderRecipeDetailPage, renderRecipeFormPage } from "./recipe-pages.js";
 import { getTopPublicRecipes, getRecentPublicRecipes } from "./recipes.js";
 import { openLotteryFlow } from "./lottery.js";
@@ -32,6 +33,7 @@ const ICON_CALENDAR = '<svg class="icon" viewBox="0 0 24 24"><rect x="3" y="5" w
 const ICON_PALETTE = '<svg class="icon" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.5-.9.9-1.7-.6-.7-.3-1.8.7-1.8H15a5 5 0 0 0 5-5c0-5.5-3.6-9.5-8-9.5Z"/><circle cx="7.5" cy="12" r="1.1" fill="currentColor" stroke="none"/><circle cx="9.5" cy="8" r="1.1" fill="currentColor" stroke="none"/><circle cx="14.5" cy="8" r="1.1" fill="currentColor" stroke="none"/></svg>';
 const ICON_GEAR = '<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.6 2 3.4 2.4-1c.6.5 1.3.9 2 1.2L10 21h4l.5-2.6c.7-.3 1.4-.7 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2Z"/></svg>';
 const ICON_LOGOUT = '<svg class="icon" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>';
+const ICON_CAMERA_SM = '<svg class="icon" viewBox="0 0 24 24" style="width:12px;height:12px"><rect x="3" y="6" width="18" height="14" rx="2"/><circle cx="12" cy="13" r="3.5"/><path d="M8 6l1.5-2h5L16 6"/></svg>';
 
 const THEME_OPTIONS = [
   { value: "terracotta", label: "陶土橘", swatch: "#D9773F" },
@@ -327,7 +329,11 @@ function renderSettingsPage(container) {
     <div class="page-head"><h1>設定</h1></div>
 
     <div class="settings-profile-card">
-      <div class="settings-profile-avatar">${(member?.displayName || "?").slice(0, 1)}</div>
+      <button type="button" id="avatar-upload-btn" class="settings-profile-avatar-btn" style="${member?.photoURL ? `background-image:url('${member.photoURL}')` : ""}">
+        ${member?.photoURL ? "" : (member?.displayName || "?").slice(0, 1)}
+        <span class="settings-avatar-edit-badge">${ICON_CAMERA_SM}</span>
+      </button>
+      <input type="file" id="avatar-file-input" accept="image/*" class="hidden" />
       <div>
         <div class="settings-profile-name">${member?.displayName || ""}</div>
         <div class="settings-profile-role">${isAdmin() ? "管理員" : "一般成員"}</div>
@@ -372,6 +378,25 @@ function renderSettingsPage(container) {
       </button>
     </div>
   `;
+
+  const avatarBtn = document.getElementById("avatar-upload-btn");
+  const avatarInput = document.getElementById("avatar-file-input");
+  avatarBtn.addEventListener("click", () => avatarInput.click());
+  avatarInput.addEventListener("change", async () => {
+    const file = avatarInput.files[0];
+    if (!file) return;
+    avatarBtn.innerHTML = `<span class="settings-avatar-uploading">上傳中…</span>`;
+    try {
+      const url = await uploadRecipeImage(file);
+      await updateMyAvatar(url);
+      showToast("大頭貼已更新");
+      renderSettingsPage(container);
+    } catch (err) {
+      console.error(err);
+      showToast(err.message || "上傳失敗，請再試一次");
+      renderSettingsPage(container);
+    }
+  });
 
   container.querySelectorAll(".theme-swatch-btn").forEach((btn) => {
     btn.addEventListener("click", async () => {

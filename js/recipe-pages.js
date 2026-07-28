@@ -53,6 +53,46 @@ function initials(name) {
   return (name || "?").trim().slice(0, 1);
 }
 
+function avatarHtml(person, cls) {
+  if (person?.photoURL) {
+    return `<img class="${cls} avatar-photo" src="${person.photoURL}" alt="${person.displayName || ""}" />`;
+  }
+  return `<div class="${cls}">${initials(person?.displayName)}</div>`;
+}
+
+async function openLikersModal(uids) {
+  const overlay = document.createElement("div");
+  overlay.className = "picker-overlay";
+  overlay.innerHTML = `
+    <div class="picker-box">
+      <button type="button" class="dialog-close picker-close" aria-label="關閉">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+      <div class="sheet-title">誰收藏了這道食譜</div>
+      <div id="likers-list">${uids.length ? '<p class="form-hint">載入中…</p>' : '<p class="form-hint">還沒有人收藏</p>'}</div>
+    </div>
+  `;
+  overlay.querySelector(".picker-close").addEventListener("click", () => overlay.remove());
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) overlay.remove();
+  });
+  document.body.appendChild(overlay);
+
+  if (uids.length === 0) return;
+
+  const people = await Promise.all(uids.map((uid) => getMemberById(uid)));
+  const listEl = overlay.querySelector("#likers-list");
+  listEl.innerHTML = people
+    .map(
+      (p) => `
+      <div class="liker-row">
+        ${avatarHtml(p, "liker-avatar")}
+        <span>${p?.displayName || "朋友"}</span>
+      </div>`
+    )
+    .join("");
+}
+
 /* ==========================================================
    畫面 1：食譜列表（#/recipes）
    ========================================================== */
@@ -257,7 +297,7 @@ export async function renderRecipeDetailPage(container, params) {
       <div class="detail-title">${recipe.name}</div>
       ${
         recipe.isPublic
-          ? `<div class="detail-owner"><div class="avatar">${initials(owner?.displayName)}</div>${owner?.displayName || "朋友"} 分享</div>`
+          ? `<div class="detail-owner">${avatarHtml(owner, "avatar")}${owner?.displayName || "朋友"} 分享</div>`
           : `<div class="detail-owner">私人食譜</div>`
       }
       <div class="detail-tags">${(recipe.styles || []).map((s) => `<span>${s}</span>`).join("")}</div>
@@ -267,7 +307,7 @@ export async function renderRecipeDetailPage(container, params) {
         <div class="meta-pill">${ICON_CLOCK}<div class="meta-val">${recipe.cookTimeMinutes ?? "－"} 分鐘</div><div class="meta-label">料理時間</div></div>
         ${
           recipe.isPublic
-            ? `<div class="meta-pill">${ICON_HEART}<div class="meta-val">${(recipe.likedBy || []).length}</div><div class="meta-label">收藏</div></div>`
+            ? `<button type="button" id="detail-likers-btn" class="meta-pill meta-pill-btn">${ICON_HEART}<div class="meta-val">${(recipe.likedBy || []).length}</div><div class="meta-label">收藏</div></button>`
             : ""
         }
       </div>
@@ -320,6 +360,11 @@ export async function renderRecipeDetailPage(container, params) {
   `;
 
   document.getElementById("detail-back").addEventListener("click", () => navigate("/recipes"));
+
+  const likersBtn = document.getElementById("detail-likers-btn");
+  if (likersBtn) {
+    likersBtn.addEventListener("click", () => openLikersModal(recipe.likedBy || []));
+  }
 
   const likeBtn = document.getElementById("detail-like");
   if (likeBtn) {
@@ -406,19 +451,19 @@ async function loadAndRenderComments(recipeId, member) {
     for (const c of comments) {
       if (!authorCache.has(c.authorId)) {
         const author = await getMemberById(c.authorId);
-        authorCache.set(c.authorId, author?.displayName || "朋友");
+        authorCache.set(c.authorId, author || { displayName: "朋友" });
       }
     }
     listEl.innerHTML = comments
       .map((c) => {
-        const authorName = authorCache.get(c.authorId);
+        const author = authorCache.get(c.authorId);
         const liked = (c.likedBy || []).includes(member?.uid);
         const canDelete = c.authorId === member?.uid || isAdmin();
         return `
           <div class="comment-row" data-id="${c.id}">
-            <div class="comment-avatar">${initials(authorName)}</div>
+            ${avatarHtml(author, "comment-avatar")}
             <div class="comment-bubble">
-              <div class="comment-name">${authorName}</div>
+              <div class="comment-name">${author.displayName || "朋友"}</div>
               <div class="comment-text">${c.content}</div>
               <div class="comment-actions">
                 <button type="button" class="comment-like-btn ${liked ? "liked" : ""}" data-id="${c.id}">${liked ? ICON_HEART_FILLED : ICON_HEART} ${(c.likedBy || []).length}</button>
