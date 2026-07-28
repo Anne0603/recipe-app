@@ -20,9 +20,11 @@ import { getTopPublicRecipes, getRecentPublicRecipes } from "./recipes.js";
 import { openLotteryFlow } from "./lottery.js";
 import { renderDiaryPage } from "./diary-pages.js";
 import { cleanupExpiredEntries } from "./diary.js";
+import { catchUpWeeklySummaries } from "./weekly-summary.js";
 import { renderFriendsListPage, renderMemberProfilePage } from "./friends-pages.js";
+import { getCurrentChallenge, markChallengeComplete, createChallenge, endChallenge } from "./challenges.js";
 import { registerRoute, setBeforeEach, setOnRouteChange, startRouter, navigate } from "./router.js";
-import { showToast } from "./utils.js";
+import { showToast, showConfirm } from "./utils.js";
 
 let isLoggedIn = false;
 
@@ -30,6 +32,7 @@ const THEME_STORAGE_KEY = "recipeApp.theme";
 const ICON_IMAGE = '<svg class="icon" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M3 16l5-4 3 3 4-4 5 5"/></svg>';
 const ICON_CLOUD = '<svg class="icon" viewBox="0 0 24 24"><path d="M7 18a4 4 0 0 1 0-8 5.5 5.5 0 0 1 10.6-1.6A4 4 0 0 1 17 18H7Z"/></svg>';
 const ICON_CALENDAR = '<svg class="icon" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>';
+const ICON_CHALLENGE_ADMIN = '<svg class="icon" viewBox="0 0 24 24"><path d="M5 3v18M5 4h11l-2 3.5L16 11H5"/></svg>';
 const ICON_PALETTE = '<svg class="icon" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.5-.9.9-1.7-.6-.7-.3-1.8.7-1.8H15a5 5 0 0 0 5-5c0-5.5-3.6-9.5-8-9.5Z"/><circle cx="7.5" cy="12" r="1.1" fill="currentColor" stroke="none"/><circle cx="9.5" cy="8" r="1.1" fill="currentColor" stroke="none"/><circle cx="14.5" cy="8" r="1.1" fill="currentColor" stroke="none"/></svg>';
 const ICON_GEAR = '<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.6 2 3.4 2.4-1c.6.5 1.3.9 2 1.2L10 21h4l.5-2.6c.7-.3 1.4-.7 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2Z"/></svg>';
 const ICON_LOGOUT = '<svg class="icon" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>';
@@ -129,7 +132,7 @@ async function renderHomePage(container) {
         <div class="hello">${greeting}，<span>${name}</span></div>
         <div class="streak-badge">
           <svg class="icon" viewBox="0 0 24 24"><path d="M12 2c1 3-2 4-2 7a3 3 0 0 0 6 0c0-1-.5-2-1-2.5.8 1.5 2 2.8 2 5.5a6 6 0 1 1-12 0c0-4 2-5 3-7 .3 1 1 2 2 2-.5-2-1-3.5 2-5Z"/></svg>
-          連續登入功能開發中
+          連續登入 ${member?.loginStreakCurrent || 1} 天
         </div>
       </div>
       <div class="weather-line">
@@ -179,11 +182,12 @@ async function renderHomePage(container) {
         <svg class="icon" viewBox="0 0 24 24"><path d="M5 3v18M5 4h11l-2 3.5L16 11H5"/></svg>
         <h2>本週挑戰</h2>
       </div>
-      <div class="empty-state">還沒有挑戰資料，等「挑戰系統」規格確定、管理員發布挑戰後會顯示在這裡。</div>
+      <div id="home-challenge"><div class="empty-state">載入中…</div></div>
     </div>
   `;
 
   loadHomeRecipeSections();
+  loadHomeChallenge();
 
   document.getElementById("lottery-btn").addEventListener("click", () => {
     openLotteryFlow();
@@ -231,6 +235,56 @@ async function loadHomeRecipeSections() {
     console.error(err);
     hotEl.innerHTML = `<div class="empty-state">載入失敗，請稍後再試。</div>`;
     recentEl.innerHTML = `<div class="empty-state">載入失敗，請稍後再試。</div>`;
+  }
+}
+
+const ICON_CHALLENGE = '<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+const ICON_CHECK_SM = '<svg class="icon icon-sm icon-solid" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>';
+
+async function loadHomeChallenge() {
+  const el = document.getElementById("home-challenge");
+  if (!el) return;
+
+  try {
+    const challenge = await getCurrentChallenge();
+    if (!challenge) {
+      el.innerHTML = `<div class="empty-state">還沒有挑戰資料，等管理員發布挑戰後會顯示在這裡。</div>`;
+      return;
+    }
+    const member = getCurrentMember();
+    const done = (challenge.completedBy || []).includes(member?.uid);
+
+    el.innerHTML = `
+      <div class="challenge-card">
+        ${ICON_CHALLENGE}
+        <div class="challenge-body">
+          <div class="challenge-title">${challenge.title}</div>
+          ${challenge.description ? `<div class="challenge-desc">${challenge.description}</div>` : ""}
+        </div>
+        <button type="button" id="home-challenge-btn" class="challenge-status-btn ${done ? "done" : ""}" ${done ? "disabled" : ""}>
+          ${done ? `${ICON_CHECK_SM}已完成` : "標記完成"}
+        </button>
+      </div>
+    `;
+
+    const btn = document.getElementById("home-challenge-btn");
+    if (btn && !done) {
+      btn.addEventListener("click", async () => {
+        btn.disabled = true;
+        try {
+          await markChallengeComplete(challenge.id, member.uid);
+          showToast("完成挑戰！已計入你的挑戰徽章");
+          loadHomeChallenge();
+        } catch (err) {
+          console.error(err);
+          showToast("操作失敗，請再試一次");
+          btn.disabled = false;
+        }
+      });
+    }
+  } catch (err) {
+    console.error(err);
+    el.innerHTML = `<div class="empty-state">載入失敗，請稍後再試。</div>`;
   }
 }
 
@@ -291,12 +345,18 @@ async function renderAppConfigPage(container) {
       </div>
     </div>
 
+    <div class="settings-group">
+      <div class="settings-group-title">${ICON_CHALLENGE_ADMIN}本週挑戰</div>
+      <div class="settings-card" id="challenge-admin-card">載入中…</div>
+    </div>
+
     <div class="settings-save-bar">
       <button id="app-config-save-btn" class="btn btn-primary settings-save-btn">儲存</button>
     </div>
   `;
 
   document.getElementById("config-back").addEventListener("click", () => navigate("/settings"));
+  renderChallengeAdminCard();
 
   document.getElementById("app-config-save-btn").addEventListener("click", async () => {
     const updates = {
@@ -313,6 +373,76 @@ async function renderAppConfigPage(container) {
       showToast("儲存失敗，請再試一次");
     }
   });
+}
+
+/** 管理設定頁裡的「本週挑戰」管理卡片：顯示目前進行中的挑戰、可結束，並提供發布新挑戰的表單 */
+async function renderChallengeAdminCard() {
+  const card = document.getElementById("challenge-admin-card");
+  if (!card) return;
+
+  try {
+    const current = await getCurrentChallenge();
+
+    card.innerHTML = `
+      ${
+        current
+          ? `<div class="challenge-admin-current">
+              <div class="challenge-admin-current-label">目前進行中</div>
+              <div class="challenge-admin-current-title">${current.title}</div>
+              ${current.description ? `<div class="challenge-admin-current-desc">${current.description}</div>` : ""}
+              <div class="challenge-admin-current-meta">${(current.completedBy || []).length} 人已完成</div>
+              <button type="button" id="challenge-end-btn" class="btn btn-ghost">結束這個挑戰</button>
+            </div>`
+          : `<p class="form-hint">目前沒有進行中的挑戰。</p>`
+      }
+
+      <div class="field" style="margin-top:14px">
+        <label for="challenge-title-input">新挑戰標題</label>
+        <input type="text" id="challenge-title-input" placeholder="例如：這週煮 3 道不重複的菜">
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label for="challenge-desc-input">說明（可空）</label>
+        <textarea id="challenge-desc-input" placeholder="補充規則或提示"></textarea>
+      </div>
+      <button type="button" id="challenge-create-btn" class="btn btn-primary" style="margin-top:12px;width:100%">發布新挑戰</button>
+    `;
+
+    const endBtn = document.getElementById("challenge-end-btn");
+    if (endBtn) {
+      endBtn.addEventListener("click", async () => {
+        const ok = await showConfirm(`確定要結束「${current.title}」這個挑戰嗎？`);
+        if (!ok) return;
+        try {
+          await endChallenge(current.id);
+          showToast("已結束");
+          renderChallengeAdminCard();
+        } catch (err) {
+          console.error(err);
+          showToast("操作失敗，請再試一次");
+        }
+      });
+    }
+
+    document.getElementById("challenge-create-btn").addEventListener("click", async () => {
+      const title = document.getElementById("challenge-title-input").value.trim();
+      const desc = document.getElementById("challenge-desc-input").value.trim();
+      if (!title) {
+        showToast("請填挑戰標題");
+        return;
+      }
+      try {
+        await createChallenge(title, desc, getCurrentMember()?.uid);
+        showToast("已發布新挑戰");
+        renderChallengeAdminCard();
+      } catch (err) {
+        console.error(err);
+        showToast("發布失敗，請再試一次");
+      }
+    });
+  } catch (err) {
+    console.error(err);
+    card.innerHTML = `<p class="form-hint">載入失敗，請重新整理再試。</p>`;
+  }
 }
 
 /* ---------------------------------------------------------
@@ -515,6 +645,7 @@ async function boot() {
       applyTheme(getCurrentMember()?.theme);
       updateTabbarVisibility();
       cleanupExpiredEntries(getCurrentMember()?.uid).catch((err) => console.error("日記過期清理失敗", err));
+      catchUpWeeklySummaries(getCurrentMember()?.uid).catch((err) => console.error("每週結算補算失敗", err));
       if (window.location.hash === "#/login" || !window.location.hash) {
         navigate("/home");
       }

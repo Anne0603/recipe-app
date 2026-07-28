@@ -32,6 +32,7 @@ import {
 import { getDbInstance } from "./firebase-init.js";
 import { incrementDiaryUsage } from "./recipes.js";
 import { getAppSettings } from "./app-settings.js";
+import { incrementBadgeCounter } from "./badges.js";
 
 const COLLECTION = "diaryEntries";
 
@@ -63,6 +64,9 @@ export async function createDiaryEntry(uid, entry) {
     createdAt: serverTimestamp(),
   };
   const ref = await addDoc(collection(db, COLLECTION), payload);
+
+  // 「料理」徽章：所有輸入方式都算（文件明講包含自由輸入）
+  await incrementBadgeCounter(uid, "cooking");
 
   // 只有「從食譜選」才計入熱門排序（文件明確規定）
   if (entry.inputType === "recipe" && entry.recipeId) {

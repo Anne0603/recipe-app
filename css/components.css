@@ -278,6 +278,14 @@
 .challenge-body { flex: 1; }
 .challenge-title { font-size: 13.5px; font-weight: 700; }
 .challenge-status { font-size: 11px; color: var(--color-berry); font-weight: 700; white-space: nowrap; }
+.challenge-desc { font-size: 11.5px; color: var(--color-text-muted); margin-top: 3px; line-height: 1.5; }
+.challenge-status-btn {
+  display: flex; align-items: center; gap: 5px; white-space: nowrap; flex-shrink: 0;
+  background: var(--color-berry); color: #fff; border: none; border-radius: 999px;
+  padding: 8px 14px; font-size: 12px; font-weight: 700; font-family: inherit; cursor: pointer;
+}
+.challenge-status-btn.done { background: var(--color-sage-bg); color: var(--color-sage); cursor: default; }
+.challenge-status-btn .icon-sm { width: 12px; height: 12px; }
 
 /* ==========================================================
    食譜功能：列表／詳情／新增編輯表單
@@ -504,6 +512,15 @@
 .settings-save-bar { padding: 4px 16px 32px; }
 .settings-save-btn { width: 100%; }
 
+.challenge-admin-current {
+  background: var(--color-berry-bg); border-radius: 12px; padding: 12px 14px; margin-bottom: 4px;
+}
+.challenge-admin-current-label { font-size: 10.5px; color: var(--color-berry); font-weight: 700; letter-spacing: 0.5px; }
+.challenge-admin-current-title { font-size: 14px; font-weight: 700; margin-top: 3px; }
+.challenge-admin-current-desc { font-size: 12px; color: var(--color-text-muted); margin-top: 4px; line-height: 1.5; }
+.challenge-admin-current-meta { font-size: 11px; color: var(--color-text-muted); margin-top: 6px; }
+.challenge-admin-current .btn { margin-top: 10px; width: 100%; }
+
 /* ==========================================================
    17｜料理日記：日曆＋當日詳情
    ========================================================== */
@@ -611,6 +628,20 @@
 .friend-stat-pill .icon { width: 18px; height: 18px; color: var(--color-text-muted); margin-bottom: 5px; }
 .friend-stat-val { font-family: var(--font-display); font-size: 16px; font-weight: 900; }
 .friend-stat-label { font-size: 10.5px; color: var(--color-text-muted); margin-top: 2px; }
+
+/* ---------- 徽章 ---------- */
+.badge-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 0 16px; }
+.badge-card {
+  background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 14px;
+  padding: 14px 8px; text-align: center; display: flex; flex-direction: column; align-items: center;
+}
+.badge-card-empty { opacity: 0.55; }
+.badge-card-icon { width: 26px; height: 26px; color: var(--color-primary); margin-bottom: 6px; }
+.badge-card-icon .icon { width: 26px; height: 26px; }
+.badge-card-label { font-size: 11.5px; font-weight: 700; }
+.badge-card-tier { font-family: var(--font-display); font-size: 13px; font-weight: 900; color: var(--color-primary); margin-top: 4px; }
+.badge-card-tier-empty { font-family: var(--font-body); font-size: 10.5px; font-weight: 400; color: var(--color-text-muted); }
+.badge-card-stars { font-size: 11px; color: var(--color-butter); letter-spacing: 1px; margin-top: 2px; }
 
 /* ==========================================================
    09｜抽籤

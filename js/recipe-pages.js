@@ -20,6 +20,7 @@ import {
   listMyOwnRecipes,
   listMyCollectedRecipes,
   toggleLike,
+  setRecipeVisibility,
 } from "./recipes.js";
 import { uploadRecipeImage } from "./recipe-images.js";
 import { getCurrentMember, getMemberById, isAdmin } from "./auth.js";
@@ -385,7 +386,7 @@ export async function renderRecipeDetailPage(container, params) {
   if (visBtn) {
     visBtn.addEventListener("click", async () => {
       try {
-        await updateRecipe(recipe.id, { isPublic: !recipe.isPublic });
+        await setRecipeVisibility(recipe.id, !recipe.isPublic);
         showToast(recipe.isPublic ? "已設為私人" : "已設為公開");
         renderRecipeDetailPage(container, params);
       } catch (err) {
@@ -803,13 +804,14 @@ export async function renderRecipeFormPage(container, params) {
     saveBtn.disabled = true;
     try {
       if (isEdit) {
-        await updateRecipe(params.id, { ...payload, isPublic: form.isPublic });
+        await updateRecipe(params.id, payload);
+        await setRecipeVisibility(params.id, form.isPublic);
         showToast("已儲存修改");
         navigate(`/recipes/${params.id}`);
       } else {
         const newId = await createRecipe(member.uid, payload);
         if (form.isPublic) {
-          await updateRecipe(newId, { isPublic: true });
+          await setRecipeVisibility(newId, true);
         }
         showToast("新增完成");
         navigate(`/recipes/${newId}`);

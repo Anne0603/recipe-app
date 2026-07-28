@@ -3,6 +3,7 @@
    ========================================================== */
 
 import { listMembersForFriendsPage, getMemberStats } from "./friends.js";
+import { getUserBadgeSummary } from "./badges.js";
 import { getMemberById } from "./auth.js";
 import { listPublicRecipes } from "./recipes.js";
 import { navigate } from "./router.js";
@@ -87,6 +88,7 @@ export async function renderMemberProfilePage(container, params) {
   }
 
   const stats = await getMemberStats(params.uid);
+  const badges = await getUserBadgeSummary(params.uid);
 
   container.innerHTML = `
     <div class="page-head">
@@ -103,7 +105,22 @@ export async function renderMemberProfilePage(container, params) {
     <div class="friend-stats-row">
       <div class="friend-stat-pill">${ICON_BOOK}<div class="friend-stat-val">${stats.publicRecipeCount}</div><div class="friend-stat-label">公開食譜</div></div>
       <div class="friend-stat-pill">${ICON_HEART}<div class="friend-stat-val">${stats.totalHearts}</div><div class="friend-stat-label">被收藏次數</div></div>
-      <div class="friend-stat-pill">${ICON_BADGE}<div class="friend-stat-val">—</div><div class="friend-stat-label">徽章</div></div>
+    </div>
+
+    <div class="home-section">
+      <div class="home-section-head">${ICON_BADGE}<h2>徽章</h2></div>
+      <div class="badge-grid">
+        ${badges
+          .map(
+            (b) => `
+          <div class="badge-card ${b.tier === 0 ? "badge-card-empty" : ""}">
+            <div class="badge-card-icon">${b.icon}</div>
+            <div class="badge-card-label">${b.label}</div>
+            ${b.tier > 0 ? `<div class="badge-card-tier">Lv.${b.tier}</div><div class="badge-card-stars">${"★".repeat(b.star)}${"☆".repeat(3 - b.star)}</div>` : `<div class="badge-card-tier badge-card-tier-empty">尚未達成</div>`}
+          </div>`
+          )
+          .join("")}
+      </div>
     </div>
 
     <div class="home-section">

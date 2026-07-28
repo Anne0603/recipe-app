@@ -21,6 +21,7 @@ import {
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAuthInstance, getDbInstance, getGoogleProvider } from "./firebase-init.js";
+import { updateLoginStreak } from "./badges.js";
 
 let currentMember = null; // 目前登入者在 Firestore 裡的成員資料（含角色）
 
@@ -81,6 +82,14 @@ export async function resolveMember(firebaseUser) {
     photoURL: syncUpdates.photoURL ?? data.photoURL,
     displayName: data.displayName || syncUpdates.displayName || "",
   };
+
+  // 更新連續登入天數（徽章系統用，同一天內重複登入不會重複累加）
+  try {
+    currentMember.loginStreakCurrent = await updateLoginStreak(firebaseUser.uid);
+  } catch (err) {
+    console.error("更新連續登入天數失敗", err);
+  }
+
   return "ok";
 }
 

@@ -31,6 +31,7 @@ import {
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getDbInstance } from "./firebase-init.js";
+import { incrementBadgeCounter } from "./badges.js";
 
 const COLLECTION = "recipes";
 
@@ -74,6 +75,8 @@ export async function createRecipe(ownerId, data) {
     ownerId,
     isPublic: false, // 新增食譜預設私人
     likedBy: [],
+    everLikedBy: [], // 累計曾經按過愛心的人（防止取消再按重複灌水「人氣」徽章），只增不減
+    sharedForBadge: false, // 是否已經因為「設成公開」被算過一次「分享」徽章，防止重複切換公開/私人被多次計算
     diaryUsageCount: 0,
     commentCount: 0,
     pinned: false,
@@ -94,9 +97,20 @@ export async function updateRecipe(recipeId, data) {
   });
 }
 
-/** 公開／私人切換（可隨時互換） */
+/** 公開／私人切換（可隨時互換）；第一次設成公開時計「分享」徽章一次，之後再怎麼切都不會重複算 */
 export async function setRecipeVisibility(recipeId, isPublic) {
-  return updateRecipe(recipeId, { isPublic });
+  const recipe = await getRecipe(recipeId);
+  if (!recipe) throw new Error("找不到這道食譜");
+
+  const shouldCountBadge = isPublic && !recipe.sharedForBadge;
+  const updates = { isPublic };
+  if (shouldCountBadge) updates.sharedForBadge = true;
+
+  await updateRecipe(recipeId, updates);
+
+  if (shouldCountBadge) {
+    await incrementBadgeCounter(recipe.ownerId, "sharing");
+  }
 }
 
 /** 時間工具：Firestore Timestamp 轉成毫秒數，方便前端自己排序用 */
@@ -174,6 +188,8 @@ export async function getRecentPublicRecipes(count = 3) {
 
 /**
  * 愛心／收藏切換（愛心＝收藏，可防重複按、可取消扣回）
+ * 「人氣」徽章累計數只在同一人「第一次」對這道食譜按愛心時 +1，
+ * 用 everLikedBy（只增不減的名單）判斷，取消再按不會重複灌水。
  * @returns {Promise<boolean>} 切換後是否為「已收藏」狀態
  */
 export async function toggleLike(recipeId, uid) {
@@ -181,8 +197,11 @@ export async function toggleLike(recipeId, uid) {
   if (!recipe) throw new Error("找不到這道食譜");
 
   const likedBy = recipe.likedBy || [];
+  const everLikedBy = recipe.everLikedBy || [];
   const alreadyLiked = likedBy.includes(uid);
   const nextLikedBy = alreadyLiked ? likedBy.filter((id) => id !== uid) : [...likedBy, uid];
+  const isFirstTimeLike = !alreadyLiked && !everLikedBy.includes(uid);
+  const nextEverLikedBy = isFirstTimeLike ? [...everLikedBy, uid] : everLikedBy;
 
   const popularityScore = computePopularityScore({
     likedBy: nextLikedBy,
@@ -190,7 +209,12 @@ export async function toggleLike(recipeId, uid) {
     commentCount: recipe.commentCount || 0,
   });
 
-  await updateRecipe(recipeId, { likedBy: nextLikedBy, popularityScore });
+  await updateRecipe(recipeId, { likedBy: nextLikedBy, everLikedBy: nextEverLikedBy, popularityScore });
+
+  if (isFirstTimeLike) {
+    await incrementBadgeCounter(recipe.ownerId, "popularity");
+  }
+
   return !alreadyLiked;
 }
 
