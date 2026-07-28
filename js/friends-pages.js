@@ -4,9 +4,11 @@
 
 import { listMembersForFriendsPage, getMemberStats } from "./friends.js";
 import { getUserBadgeSummary } from "./badges.js";
-import { getMemberById } from "./auth.js";
+import { getMemberById, getCurrentMember } from "./auth.js";
 import { listPublicRecipes } from "./recipes.js";
+import { listAllChallenges } from "./challenges.js";
 import { navigate } from "./router.js";
+import { showToast } from "./utils.js";
 
 const ICON_NO_PHOTO = '<svg class="icon" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M3 16l5-4 3 3 4-4 5 5"/></svg>';
 const ICON_HEART = '<svg class="icon" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 1 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78Z"/></svg>';
@@ -93,7 +95,6 @@ export async function renderMemberProfilePage(container, params) {
   container.innerHTML = `
     <div class="page-head">
       <button id="profile-back" class="back-btn"><svg class="icon" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
-      <h1>${member.displayName || "朋友"}</h1>
     </div>
 
     <div class="friend-profile-head">
@@ -111,14 +112,16 @@ export async function renderMemberProfilePage(container, params) {
       <div class="home-section-head">${ICON_BADGE}<h2>徽章</h2></div>
       <div class="badge-grid">
         ${badges
-          .map(
-            (b) => `
-          <div class="badge-card ${b.tier === 0 ? "badge-card-empty" : ""}">
+          .map((b) => {
+            const isOwnProfile = member.uid === getCurrentMember()?.uid;
+            const clickable = b.key !== "cooking" || isOwnProfile;
+            return `
+          <div class="badge-card ${b.tier === 0 ? "badge-card-empty" : ""} ${clickable ? "badge-card-clickable" : ""}" data-key="${b.key}">
             <div class="badge-card-icon">${b.icon}</div>
             <div class="badge-card-label">${b.label}</div>
             ${b.tier > 0 ? `<div class="badge-card-tier">Lv.${b.tier}</div><div class="badge-card-stars">${"★".repeat(b.star)}${"☆".repeat(3 - b.star)}</div>` : `<div class="badge-card-tier badge-card-tier-empty">尚未達成</div>`}
-          </div>`
-          )
+          </div>`;
+          })
           .join("")}
       </div>
     </div>
@@ -137,6 +140,10 @@ export async function renderMemberProfilePage(container, params) {
   `;
 
   document.getElementById("profile-back").addEventListener("click", () => navigate("/friends"));
+
+  document.querySelectorAll(".badge-card-clickable").forEach((card) => {
+    card.addEventListener("click", () => handleBadgeClick(card.dataset.key, { member, stats, badges }));
+  });
 
   async function loadRecipes(sort) {
     const gridEl = document.getElementById("profile-recipe-grid");
@@ -182,4 +189,80 @@ function recipeCardHtml(recipe) {
       </div>
     </a>
   `;
+}
+
+function showInfoModal(title, bodyHtml) {
+  const overlay = document.createElement("div");
+  overlay.className = "picker-overlay";
+  overlay.innerHTML = `
+    <div class="picker-box">
+      <button type="button" class="dialog-close picker-close" aria-label="關閉">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+      <div class="sheet-title">${title}</div>
+      <div class="badge-detail-body">${bodyHtml}</div>
+    </div>
+  `;
+  overlay.querySelector(".picker-close").addEventListener("click", () => overlay.remove());
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) overlay.remove();
+  });
+  document.body.appendChild(overlay);
+}
+
+async function handleBadgeClick(key, { member, stats, badges }) {
+  const badge = badges.find((b) => b.key === key);
+
+  if (key === "loginStreak") {
+    showInfoModal(
+      "連續登入",
+      `<p>目前連續 <strong>${member.loginStreakCurrent || 0}</strong> 天</p>
+       <p>歷史最高 <strong>${badge?.count || 0}</strong> 天</p>`
+    );
+    return;
+  }
+
+  if (key === "sharing") {
+    const cumulative = badge?.count || 0;
+    const live = stats.publicRecipeCount;
+    const diff = Math.max(0, cumulative - live);
+    showInfoModal(
+      "分享",
+      `<p>累計分享過 <strong>${cumulative}</strong> 道食譜（達成徽章用的數字，只會往上加）</p>
+       <p>目前還在公開的有 <strong>${live}</strong> 道${diff > 0 ? `，另外 ${diff} 道後來設回私人，但仍計入這個成就` : ""}</p>`
+    );
+    return;
+  }
+
+  if (key === "popularity") {
+    const cumulative = badge?.count || 0;
+    const live = stats.totalHearts;
+    showInfoModal(
+      "人氣",
+      `<p>歷史累計收到 <strong>${cumulative}</strong> 次愛心（達成徽章用的數字，只會往上加）</p>
+       <p>目前即時收藏數是 <strong>${live}</strong>${cumulative > live ? "，可能是有人後來取消收藏" : ""}</p>`
+    );
+    return;
+  }
+
+  if (key === "challenge") {
+    showInfoModal("已完成的挑戰", `<p class="form-hint">載入中…</p>`);
+    try {
+      const all = await listAllChallenges();
+      const completed = all.filter((c) => (c.completedBy || []).includes(member.uid));
+      const bodyHtml = completed.length
+        ? completed.map((c) => `<div class="challenge-detail-row">${c.title}</div>`).join("")
+        : `<p class="form-hint">還沒有完成過挑戰。</p>`;
+      document.querySelectorAll(".picker-overlay").forEach((o) => o.remove());
+      showInfoModal("已完成的挑戰", bodyHtml);
+    } catch (err) {
+      console.error(err);
+      showToast("載入失敗，請再試一次");
+    }
+    return;
+  }
+
+  if (key === "cooking") {
+    navigate("/diary");
+  }
 }
