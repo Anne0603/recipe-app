@@ -135,11 +135,27 @@ async function fetchCurrentWeather(lat, lon, apiKey) {
   const res = await fetch(url);
   if (!res.ok) throw new Error("天氣資料抓取失敗");
   const data = await res.json();
+
+  // 天氣 API 回傳的地名（data.name）常常給一個很小、不熟悉的地方名，
+  // 改用反向地理編碼 API 查地名，跟手動選城市用的是同一份資料庫，準確度好很多
+  let cityName = data.name || "";
+  try {
+    const geoUrl = "https://api.openweathermap.org/geo/1.0/reverse?lat=" + lat + "&lon=" + lon + "&limit=1&appid=" + apiKey;
+    const geoRes = await fetch(geoUrl);
+    if (geoRes.ok) {
+      const geoData = await geoRes.json();
+      const place = geoData?.[0];
+      if (place) cityName = place.local_names?.zh || place.name || cityName;
+    }
+  } catch (geoErr) {
+    console.error("反查地名失敗，改用天氣 API 附帶的地名", geoErr);
+  }
+
   return {
     temp: Math.round(data.main.temp),
     feelsLike: data.main.feels_like,
     owmMain: (data.weather && data.weather[0] && data.weather[0].main) || "Clouds",
-    cityName: data.name || "",
+    cityName: cityName,
   };
 }
 
