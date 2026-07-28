@@ -291,6 +291,9 @@
 .challenge-status { font-size: 11px; color: var(--color-berry); font-weight: 700; white-space: nowrap; }
 .challenge-desc { font-size: 11.5px; color: var(--color-text-muted); margin-top: 3px; line-height: 1.5; }
 .challenge-deadline { font-size: 10.5px; color: var(--color-berry); margin-top: 3px; font-weight: 700; }
+.challenge-deadline.urgent { color: #c94f4f; }
+.challenge-admin-item-meta .urgent { color: #c94f4f; font-weight: 700; }
+.challenge-more-link { display: block; text-align: center; font-size: 12px; color: var(--color-text-muted); text-decoration: underline; margin: 10px 16px 0; }
 .challenge-status-btn {
   display: flex; align-items: center; gap: 5px; white-space: nowrap; flex-shrink: 0;
   background: var(--color-berry); color: #fff; border: none; border-radius: 999px;

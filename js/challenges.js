@@ -88,6 +88,16 @@ export async function listEndedChallenges() {
   return all.filter((c) => !c.active);
 }
 
+/**
+ * 所有還有「待審核」項目的挑戰，不限進行中／已結束都查（重要：
+ * 避免有人在期限前一刻提交、但管理員來不及審核、挑戰就先自動
+ * 結束了，導致那筆待審核資料在舊寫法裡永遠不會被看到）。
+ */
+export async function listChallengesWithPendingReview() {
+  const all = await listAllChallenges();
+  return all.filter((c) => (c.pendingReview || []).length > 0);
+}
+
 /** 首頁「本週挑戰」用：目前唯一顯示中的挑戰（取最新一個進行中的） */
 export async function getCurrentChallenge() {
   const active = await listActiveChallenges();

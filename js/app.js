@@ -24,7 +24,7 @@ import { catchUpWeeklySummaries } from "./weekly-summary.js";
 import { getHomeWeatherDisplay } from "./weather.js";
 import { requestAutoLocation, setManualCity, getWeatherMode } from "./location.js";
 import { renderFriendsListPage, renderMemberProfilePage } from "./friends-pages.js";
-import { getCurrentChallenge, markChallengeComplete, createChallenge, endChallenge, autoExpireChallenges, listActiveChallenges, listEndedChallenges, approveChallengeCompletion, rejectChallengeCompletion } from "./challenges.js";
+import { getCurrentChallenge, markChallengeComplete, createChallenge, endChallenge, autoExpireChallenges, listActiveChallenges, listEndedChallenges, approveChallengeCompletion, rejectChallengeCompletion, listChallengesWithPendingReview } from "./challenges.js";
 import { registerRoute, setBeforeEach, setOnRouteChange, startRouter, navigate } from "./router.js";
 import { showToast, showConfirm } from "./utils.js";
 
@@ -353,6 +353,17 @@ async function loadHomeRecipeSections() {
 }
 
 const ICON_CHALLENGE = '<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+
+/** 距離期限還有幾天（今天算 0），deadline 是 "YYYY-MM-DD" */
+function daysUntil(deadline) {
+  if (!deadline) return null;
+  const [y, m, d] = deadline.split("-").map(Number);
+  const target = new Date(y, m - 1, d);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  target.setHours(0, 0, 0, 0);
+  return Math.round((target - today) / (1000 * 60 * 60 * 24));
+}
 const ICON_CHECK_SM = '<svg class="icon icon-sm icon-solid" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>';
 
 async function loadHomeChallenge() {
@@ -360,7 +371,8 @@ async function loadHomeChallenge() {
   if (!el) return;
 
   try {
-    const challenge = await getCurrentChallenge();
+    const allActive = await listActiveChallenges();
+    const challenge = allActive[0];
     if (!challenge) {
       el.innerHTML = `<div class="empty-state">還沒有挑戰資料，等管理員發布挑戰後會顯示在這裡。</div>`;
       return;
@@ -369,6 +381,8 @@ async function loadHomeChallenge() {
     const done = (challenge.completedBy || []).includes(member?.uid);
     const pending = (challenge.pendingReview || []).includes(member?.uid);
     const needsReview = challenge.verificationMode === "admin_review";
+    const daysLeft = daysUntil(challenge.deadline);
+    const urgent = daysLeft != null && daysLeft <= 2;
 
     let btnHtml;
     if (done) {
@@ -385,10 +399,11 @@ async function loadHomeChallenge() {
         <div class="challenge-body">
           <div class="challenge-title">${challenge.title}</div>
           ${challenge.description ? `<div class="challenge-desc">${challenge.description}</div>` : ""}
-          ${challenge.deadline ? `<div class="challenge-deadline">期限至 ${challenge.deadline}</div>` : ""}
+          ${challenge.deadline ? `<div class="challenge-deadline ${urgent ? "urgent" : ""}">${urgent ? "快到期！" : "期限至"} ${challenge.deadline}</div>` : ""}
         </div>
         ${btnHtml}
       </div>
+      ${allActive.length > 1 ? `<a href="#/challenges" class="challenge-more-link">還有 ${allActive.length - 1} 個進行中的挑戰，看全部 ›</a>` : ""}
     `;
 
     const btn = document.getElementById("home-challenge-btn");
@@ -420,6 +435,92 @@ async function loadHomeChallenge() {
   } catch (err) {
     console.error(err);
     el.innerHTML = `<div class="empty-state">載入失敗，請稍後再試。</div>`;
+  }
+}
+
+/** 成員版「全部挑戰」列表頁（#/challenges），每個挑戰都能個別標記完成 */
+async function renderAllChallengesPage(container) {
+  container.innerHTML = `
+    <div class="page-head">
+      <button id="all-challenges-back" class="back-btn"><svg class="icon" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+      <h1>全部挑戰</h1>
+    </div>
+    <div id="all-challenges-list" class="challenge-admin-list"><p class="form-hint" style="padding:0 16px">載入中…</p></div>
+  `;
+  document.getElementById("all-challenges-back").addEventListener("click", () => navigate("/home"));
+
+  await renderAllChallengesList();
+}
+
+async function renderAllChallengesList() {
+  const listEl = document.getElementById("all-challenges-list");
+  if (!listEl) return;
+
+  try {
+    const challenges = await listActiveChallenges();
+    const member = getCurrentMember();
+
+    if (challenges.length === 0) {
+      listEl.innerHTML = `<p class="form-hint" style="padding:0 16px">目前沒有進行中的挑戰。</p>`;
+      return;
+    }
+
+    listEl.innerHTML = challenges
+      .map((c) => {
+        const done = (c.completedBy || []).includes(member?.uid);
+        const pending = (c.pendingReview || []).includes(member?.uid);
+        const needsReview = c.verificationMode === "admin_review";
+        const daysLeft = daysUntil(c.deadline);
+        const urgent = daysLeft != null && daysLeft <= 2;
+
+        let btnHtml;
+        if (done) {
+          btnHtml = `<button type="button" class="challenge-status-btn done" disabled>${ICON_CHECK_SM}已完成</button>`;
+        } else if (pending) {
+          btnHtml = `<button type="button" class="challenge-status-btn pending" disabled>審核中</button>`;
+        } else {
+          btnHtml = `<button type="button" class="challenge-status-btn all-challenge-btn" data-id="${c.id}" data-title="${c.title}" data-review="${needsReview}">${needsReview ? "提交完成" : "標記完成"}</button>`;
+        }
+
+        return `
+          <div class="challenge-admin-item ${done ? "challenge-card-done" : ""}">
+            <div class="challenge-admin-item-title">${c.title}</div>
+            ${c.description ? `<div class="challenge-admin-item-desc">${c.description}</div>` : ""}
+            <div class="challenge-admin-item-meta">
+              <span class="${urgent ? "urgent" : ""}">${urgent ? "快到期！" : "期限至"} ${c.deadline}</span>
+              <span>${(c.completedBy || []).length} 人已完成</span>
+            </div>
+            ${btnHtml}
+          </div>
+        `;
+      })
+      .join("");
+
+    listEl.querySelectorAll(".all-challenge-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const needsReview = btn.dataset.review === "true";
+        const ok = await showConfirm(
+          needsReview
+            ? `確定要提交「${btn.dataset.title}」這個挑戰嗎？提交後要等管理員審核才會計入徽章。`
+            : `確定要標記完成「${btn.dataset.title}」這個挑戰嗎？`
+        );
+        if (!ok) return;
+        btn.disabled = true;
+        try {
+          const result = await markChallengeComplete(btn.dataset.id, member.uid);
+          if (result === "pending") showToast("已提交，等管理員審核");
+          else if (result === "done") showToast("完成挑戰！已計入你的挑戰徽章");
+          renderAllChallengesList();
+        } catch (err) {
+          console.error(err);
+          showToast("操作失敗，請再試一次");
+          btn.disabled = false;
+        }
+      });
+    });
+  } catch (err) {
+    console.error(err);
+    listEl.innerHTML = `<p class="form-hint" style="padding:0 16px">載入失敗，請重新整理再試。</p>`;
   }
 }
 
@@ -630,8 +731,8 @@ async function pendingReviewCardHtml(c) {
       <div class="challenge-pending-row">
         <span>${m?.displayName || "朋友"}</span>
         <div class="challenge-pending-actions">
-          <button type="button" class="challenge-approve-btn" data-cid="${c.id}" data-uid="${uids[i]}">核准</button>
-          <button type="button" class="challenge-reject-btn" data-cid="${c.id}" data-uid="${uids[i]}">拒絕</button>
+          <button type="button" class="challenge-approve-btn" data-cid="${c.id}" data-uid="${uids[i]}" data-name="${m?.displayName || "朋友"}">核准</button>
+          <button type="button" class="challenge-reject-btn" data-cid="${c.id}" data-uid="${uids[i]}" data-name="${m?.displayName || "朋友"}">拒絕</button>
         </div>
       </div>`
     )
@@ -661,7 +762,7 @@ async function loadChallengeLists() {
       ? ended.map((c) => challengeAdminCardHtml(c, { ended: true })).join("")
       : `<p class="form-hint" style="padding:0 16px">還沒有結束過的挑戰。</p>`;
 
-    const withPending = active.filter((c) => (c.pendingReview || []).length > 0);
+    const withPending = await listChallengesWithPendingReview();
     if (withPending.length === 0) {
       pendingEl.innerHTML = `<p class="form-hint" style="padding:0 16px">目前沒有待審核的項目。</p>`;
     } else {
@@ -671,6 +772,8 @@ async function loadChallengeLists() {
 
     pendingEl.querySelectorAll(".challenge-approve-btn").forEach((btn) => {
       btn.addEventListener("click", async () => {
+        const ok = await showConfirm(`確定要核准「${btn.dataset.name}」完成這個挑戰嗎？核准後會計入對方的挑戰徽章。`);
+        if (!ok) return;
         try {
           await approveChallengeCompletion(btn.dataset.cid, btn.dataset.uid);
           showToast("已核准，計入對方的挑戰徽章");
@@ -683,6 +786,8 @@ async function loadChallengeLists() {
     });
     pendingEl.querySelectorAll(".challenge-reject-btn").forEach((btn) => {
       btn.addEventListener("click", async () => {
+        const ok = await showConfirm(`確定要拒絕「${btn.dataset.name}」這次的提交嗎？如果期限還沒到，對方還可以重新提交。`);
+        if (!ok) return;
         try {
           await rejectChallengeCompletion(btn.dataset.cid, btn.dataset.uid);
           showToast("已拒絕");
@@ -896,6 +1001,7 @@ registerRoute("/recipes/:id", renderRecipeDetailPage, { hideTabbar: true });
 registerRoute("/diary", renderDiaryPage);
 registerRoute("/expenses", renderPlaceholderPage("花費記錄"));
 registerRoute("/friends", renderFriendsListPage);
+registerRoute("/challenges", renderAllChallengesPage, { hideTabbar: true });
 registerRoute("/friends/:uid", renderMemberProfilePage, { hideTabbar: true });
 registerRoute("/settings", renderSettingsPage);
 registerRoute("/app-config", renderAppConfigPage, { hideTabbar: true });
