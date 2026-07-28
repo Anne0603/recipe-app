@@ -12,7 +12,7 @@
 
 import { isConfigComplete, getMissingFields } from "./config-check.js";
 import { initFirebase } from "./firebase-init.js";
-import { signInWithGoogle, signOutUser, resolveMember, watchAuthState, getCurrentMember, isAdmin, updateMyTheme, updateMyAvatar } from "./auth.js";
+import { signInWithGoogle, signOutUser, resolveMember, watchAuthState, getCurrentMember, isAdmin, updateMyTheme, updateMyAvatar, getMemberById } from "./auth.js";
 import { getAppSettings, saveAppSettings, isAppSettingsComplete } from "./app-settings.js";
 import { uploadRecipeImage } from "./recipe-images.js";
 import { renderRecipeListPage, renderRecipeDetailPage, renderRecipeFormPage } from "./recipe-pages.js";
@@ -24,7 +24,7 @@ import { catchUpWeeklySummaries } from "./weekly-summary.js";
 import { getHomeWeatherDisplay } from "./weather.js";
 import { requestAutoLocation, setManualCity, getWeatherMode } from "./location.js";
 import { renderFriendsListPage, renderMemberProfilePage } from "./friends-pages.js";
-import { getCurrentChallenge, markChallengeComplete, createChallenge, endChallenge, autoExpireChallenges, listActiveChallenges, listEndedChallenges } from "./challenges.js";
+import { getCurrentChallenge, markChallengeComplete, createChallenge, endChallenge, autoExpireChallenges, listActiveChallenges, listEndedChallenges, approveChallengeCompletion, rejectChallengeCompletion } from "./challenges.js";
 import { registerRoute, setBeforeEach, setOnRouteChange, startRouter, navigate } from "./router.js";
 import { showToast, showConfirm } from "./utils.js";
 
@@ -367,28 +367,48 @@ async function loadHomeChallenge() {
     }
     const member = getCurrentMember();
     const done = (challenge.completedBy || []).includes(member?.uid);
+    const pending = (challenge.pendingReview || []).includes(member?.uid);
+    const needsReview = challenge.verificationMode === "admin_review";
+
+    let btnHtml;
+    if (done) {
+      btnHtml = `<button type="button" class="challenge-status-btn done" disabled>${ICON_CHECK_SM}已完成</button>`;
+    } else if (pending) {
+      btnHtml = `<button type="button" class="challenge-status-btn pending" disabled>審核中</button>`;
+    } else {
+      btnHtml = `<button type="button" id="home-challenge-btn" class="challenge-status-btn">${needsReview ? "提交完成" : "標記完成"}</button>`;
+    }
 
     el.innerHTML = `
-      <div class="challenge-card">
+      <div class="challenge-card ${done ? "challenge-card-done" : ""}">
         ${ICON_CHALLENGE}
         <div class="challenge-body">
           <div class="challenge-title">${challenge.title}</div>
           ${challenge.description ? `<div class="challenge-desc">${challenge.description}</div>` : ""}
           ${challenge.deadline ? `<div class="challenge-deadline">期限至 ${challenge.deadline}</div>` : ""}
         </div>
-        <button type="button" id="home-challenge-btn" class="challenge-status-btn ${done ? "done" : ""}" ${done ? "disabled" : ""}>
-          ${done ? `${ICON_CHECK_SM}已完成` : "標記完成"}
-        </button>
+        ${btnHtml}
       </div>
     `;
 
     const btn = document.getElementById("home-challenge-btn");
-    if (btn && !done) {
+    if (btn) {
       btn.addEventListener("click", async () => {
+        const ok = await showConfirm(
+          needsReview
+            ? `確定要提交「${challenge.title}」這個挑戰嗎？提交後要等管理員審核才會計入徽章。`
+            : `確定要標記完成「${challenge.title}」這個挑戰嗎？`
+        );
+        if (!ok) return;
+
         btn.disabled = true;
         try {
-          await markChallengeComplete(challenge.id, member.uid);
-          showToast("完成挑戰！已計入你的挑戰徽章");
+          const result = await markChallengeComplete(challenge.id, member.uid);
+          if (result === "pending") {
+            showToast("已提交，等管理員審核");
+          } else if (result === "done") {
+            showToast("完成挑戰！已計入你的挑戰徽章");
+          }
           loadHomeChallenge();
         } catch (err) {
           console.error(err);
@@ -518,8 +538,21 @@ async function renderChallengeAdminPage(container) {
           <label for="challenge-deadline-input">期限（到這天為止，過了自動結束）</label>
           <input type="date" id="challenge-deadline-input" value="${defaultDeadline}">
         </div>
+        <div class="field" style="margin-bottom:0; margin-top:14px">
+          <label>完成方式</label>
+          <div class="segment segment-sm" id="challenge-mode-toggle">
+            <button type="button" class="active" data-mode="self">自行標記</button>
+            <button type="button" data-mode="admin_review">需要審核</button>
+          </div>
+          <div class="form-hint" style="margin-top:6px">簡單、好判斷的挑戰選「自行標記」；需要看照片或證明的挑戰選「需要審核」，成員提交後你要在下面核准才算數。</div>
+        </div>
         <button type="button" id="challenge-create-btn" class="btn btn-primary" style="margin-top:12px;width:100%">發布新挑戰</button>
       </div>
+    </div>
+
+    <div class="settings-group">
+      <div class="settings-group-title">待審核</div>
+      <div id="challenge-pending-list" class="challenge-admin-list"><p class="form-hint" style="padding:0 16px">載入中…</p></div>
     </div>
 
     <div class="settings-group">
@@ -535,6 +568,14 @@ async function renderChallengeAdminPage(container) {
 
   document.getElementById("challenge-admin-back").addEventListener("click", () => navigate("/settings"));
 
+  let selectedMode = "self";
+  document.querySelectorAll("#challenge-mode-toggle button").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      selectedMode = btn.dataset.mode;
+      document.querySelectorAll("#challenge-mode-toggle button").forEach((b) => b.classList.toggle("active", b === btn));
+    });
+  });
+
   document.getElementById("challenge-create-btn").addEventListener("click", async () => {
     const title = document.getElementById("challenge-title-input").value.trim();
     const desc = document.getElementById("challenge-desc-input").value.trim();
@@ -548,7 +589,7 @@ async function renderChallengeAdminPage(container) {
       return;
     }
     try {
-      await createChallenge(title, desc, deadline, getCurrentMember()?.uid);
+      await createChallenge(title, desc, deadline, selectedMode, getCurrentMember()?.uid);
       showToast("已發布新挑戰");
       document.getElementById("challenge-title-input").value = "";
       document.getElementById("challenge-desc-input").value = "";
@@ -565,7 +606,10 @@ async function renderChallengeAdminPage(container) {
 function challengeAdminCardHtml(c, { ended }) {
   return `
     <div class="challenge-admin-item ${ended ? "ended" : ""}">
-      <div class="challenge-admin-item-title">${c.title}</div>
+      <div class="challenge-admin-item-title">
+        ${c.title}
+        ${c.verificationMode === "admin_review" ? '<span class="challenge-mode-tag">需審核</span>' : ""}
+      </div>
       ${c.description ? `<div class="challenge-admin-item-desc">${c.description}</div>` : ""}
       <div class="challenge-admin-item-meta">
         <span>${ended ? "期限至" : "還剩到"} ${c.deadline}</span>
@@ -576,10 +620,35 @@ function challengeAdminCardHtml(c, { ended }) {
   `;
 }
 
+async function pendingReviewCardHtml(c) {
+  const uids = c.pendingReview || [];
+  if (uids.length === 0) return "";
+  const members = await Promise.all(uids.map((uid) => getMemberById(uid)));
+  const rows = members
+    .map(
+      (m, i) => `
+      <div class="challenge-pending-row">
+        <span>${m?.displayName || "朋友"}</span>
+        <div class="challenge-pending-actions">
+          <button type="button" class="challenge-approve-btn" data-cid="${c.id}" data-uid="${uids[i]}">核准</button>
+          <button type="button" class="challenge-reject-btn" data-cid="${c.id}" data-uid="${uids[i]}">拒絕</button>
+        </div>
+      </div>`
+    )
+    .join("");
+  return `
+    <div class="challenge-admin-item">
+      <div class="challenge-admin-item-title">${c.title}</div>
+      ${rows}
+    </div>
+  `;
+}
+
 async function loadChallengeLists() {
   const activeEl = document.getElementById("challenge-active-list");
   const endedEl = document.getElementById("challenge-ended-list");
-  if (!activeEl || !endedEl) return;
+  const pendingEl = document.getElementById("challenge-pending-list");
+  if (!activeEl || !endedEl || !pendingEl) return;
 
   try {
     const [active, ended] = await Promise.all([listActiveChallenges(), listEndedChallenges()]);
@@ -591,6 +660,39 @@ async function loadChallengeLists() {
     endedEl.innerHTML = ended.length
       ? ended.map((c) => challengeAdminCardHtml(c, { ended: true })).join("")
       : `<p class="form-hint" style="padding:0 16px">還沒有結束過的挑戰。</p>`;
+
+    const withPending = active.filter((c) => (c.pendingReview || []).length > 0);
+    if (withPending.length === 0) {
+      pendingEl.innerHTML = `<p class="form-hint" style="padding:0 16px">目前沒有待審核的項目。</p>`;
+    } else {
+      const cards = await Promise.all(withPending.map(pendingReviewCardHtml));
+      pendingEl.innerHTML = cards.join("");
+    }
+
+    pendingEl.querySelectorAll(".challenge-approve-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        try {
+          await approveChallengeCompletion(btn.dataset.cid, btn.dataset.uid);
+          showToast("已核准，計入對方的挑戰徽章");
+          loadChallengeLists();
+        } catch (err) {
+          console.error(err);
+          showToast("操作失敗，請再試一次");
+        }
+      });
+    });
+    pendingEl.querySelectorAll(".challenge-reject-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        try {
+          await rejectChallengeCompletion(btn.dataset.cid, btn.dataset.uid);
+          showToast("已拒絕");
+          loadChallengeLists();
+        } catch (err) {
+          console.error(err);
+          showToast("操作失敗，請再試一次");
+        }
+      });
+    });
 
     activeEl.querySelectorAll(".challenge-admin-end-btn").forEach((btn) => {
       btn.addEventListener("click", async () => {
@@ -610,6 +712,7 @@ async function loadChallengeLists() {
     console.error(err);
     activeEl.innerHTML = `<p class="form-hint" style="padding:0 16px">載入失敗，請重新整理再試。</p>`;
     endedEl.innerHTML = "";
+    pendingEl.innerHTML = "";
   }
 }
 

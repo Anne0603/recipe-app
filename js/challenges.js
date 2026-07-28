@@ -6,15 +6,20 @@
    食譜、這週煮幾道菜、分享食譜、連續登入、使用特定食材）／
    無法自動判斷（手動確認或管理員審核）」。
 
-   這次先只做「手動完成」這一種模式——管理員發布挑戰、成員自己
-   按「完成挑戰」標記——文件裡「無法自動判斷」的類型本來就是走
-   這條路。「可自動判斷」那 5 種類型的自動偵測邏輯還沒做，
-   之後有需要再回來加，資料結構已經留了 criterionType 欄位，
-   不用重改。
+   「可自動判斷」那 5 種類型的自動偵測邏輯還沒做，之後有需要再
+   回來加。「無法自動判斷」那兩種模式（手動確認／管理員審核）
+   這次都做了——管理員發布挑戰時自己選這個挑戰要哪一種：
+     - self：成員自己標記完成，立刻計入徽章（信任制，跟你們熟識
+       的朋友圈比較搭）
+     - admin_review：成員「提交完成」後變成待審核，管理員在挑戰
+       管理頁核准/拒絕，核准後才計入徽章
 
    集合：challenges/{challengeId}
      title, description, deadline（YYYY-MM-DD，必填，到期自動結束）,
-     createdBy, createdAt, active, completedBy[]
+     verificationMode（'self' | 'admin_review'）,
+     createdBy, createdAt, active,
+     completedBy[]（真的算完成的人）,
+     pendingReview[]（admin_review 模式下，提交了但還沒被核准的人）
 
    到期自動結束：純前端定時任務的做法，跟日記自動清除、每週結算
    補算同一套邏輯——有人開 APP 時（登入成功後）檢查一次，
@@ -48,16 +53,18 @@ function todayStr() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-/** 管理員發布新挑戰，deadline 是 "YYYY-MM-DD"，必填 */
-export async function createChallenge(title, description, deadline, createdBy) {
+/** 管理員發布新挑戰，deadline 是 "YYYY-MM-DD"，verificationMode 是 'self' 或 'admin_review' */
+export async function createChallenge(title, description, deadline, verificationMode, createdBy) {
   const db = getDbInstance();
   const ref = await addDoc(collection(db, COLLECTION), {
     title,
     description: description || "",
     deadline,
+    verificationMode: verificationMode === "admin_review" ? "admin_review" : "self",
     createdBy,
     active: true,
     completedBy: [],
+    pendingReview: [],
     createdAt: serverTimestamp(),
   });
   return ref.id;
@@ -107,16 +114,56 @@ export async function autoExpireChallenges() {
   return expired.length;
 }
 
-/** 成員標記自己完成這個挑戰，計入「挑戰」徽章（同一人對同一挑戰只會算一次） */
+/**
+ * 成員標記自己完成這個挑戰。
+ * verificationMode === 'self' → 立刻算完成、計入徽章
+ * verificationMode === 'admin_review' → 進入待審核，還不算完成、不計徽章
+ */
 export async function markChallengeComplete(challengeId, uid) {
   const db = getDbInstance();
   const ref = doc(db, COLLECTION, challengeId);
   const snap = await getDoc(ref);
   if (!snap.exists()) throw new Error("找不到這個挑戰");
 
-  const completedBy = snap.data().completedBy || [];
-  if (completedBy.includes(uid)) return; // 已經標記過，不重複算
+  const data = snap.data();
+  const completedBy = data.completedBy || [];
+  if (completedBy.includes(uid)) return "already_done";
+
+  if (data.verificationMode === "admin_review") {
+    const pendingReview = data.pendingReview || [];
+    if (pendingReview.includes(uid)) return "already_pending";
+    await updateDoc(ref, { pendingReview: [...pendingReview, uid] });
+    return "pending";
+  }
 
   await updateDoc(ref, { completedBy: [...completedBy, uid] });
   await incrementBadgeCounter(uid, "challenge");
+  return "done";
+}
+
+/** 管理員核准一筆待審核的完成提交，這時候才真的計入徽章 */
+export async function approveChallengeCompletion(challengeId, uid) {
+  const db = getDbInstance();
+  const ref = doc(db, COLLECTION, challengeId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) throw new Error("找不到這個挑戰");
+
+  const data = snap.data();
+  const pendingReview = (data.pendingReview || []).filter((id) => id !== uid);
+  const completedBy = data.completedBy || [];
+  if (!completedBy.includes(uid)) completedBy.push(uid);
+
+  await updateDoc(ref, { pendingReview, completedBy });
+  await incrementBadgeCounter(uid, "challenge");
+}
+
+/** 管理員拒絕一筆待審核的完成提交，不計徽章 */
+export async function rejectChallengeCompletion(challengeId, uid) {
+  const db = getDbInstance();
+  const ref = doc(db, COLLECTION, challengeId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) throw new Error("找不到這個挑戰");
+
+  const pendingReview = (snap.data().pendingReview || []).filter((id) => id !== uid);
+  await updateDoc(ref, { pendingReview });
 }
