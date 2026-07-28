@@ -98,6 +98,38 @@ export async function listChallengesWithPendingReview() {
   return all.filter((c) => (c.pendingReview || []).length > 0);
 }
 
+const REVIEW_GRACE_DAYS = 10;
+
+/**
+ * 有人開 APP、登入成功時呼叫：挑戰期限到了之後，還會再留 10 天
+ * 讓管理員審核待審核項目；超過 10 天都沒處理的，自動判定失敗
+ * （不計入徽章，直接從待審核清單移除）。
+ * @returns {Promise<number>} 這次自動判定失敗的筆數
+ */
+export async function autoResolveStalePendingReviews() {
+  const withPending = await listChallengesWithPendingReview();
+  const today = todayStr();
+  let resolvedCount = 0;
+
+  for (const c of withPending) {
+    if (!c.deadline) continue;
+    const graceDeadline = addDaysToDateStr(c.deadline, REVIEW_GRACE_DAYS);
+    if (today > graceDeadline) {
+      const db = getDbInstance();
+      await updateDoc(doc(db, COLLECTION, c.id), { pendingReview: [] });
+      resolvedCount += (c.pendingReview || []).length;
+    }
+  }
+  return resolvedCount;
+}
+
+function addDaysToDateStr(dateStr, days) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const date = new Date(y, m - 1, d);
+  date.setDate(date.getDate() + days);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
 /** 首頁「本週挑戰」用：目前唯一顯示中的挑戰（取最新一個進行中的） */
 export async function getCurrentChallenge() {
   const active = await listActiveChallenges();

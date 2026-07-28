@@ -24,7 +24,7 @@ import { catchUpWeeklySummaries } from "./weekly-summary.js";
 import { getHomeWeatherDisplay } from "./weather.js";
 import { requestAutoLocation, setManualCity, getWeatherMode } from "./location.js";
 import { renderFriendsListPage, renderMemberProfilePage } from "./friends-pages.js";
-import { getCurrentChallenge, markChallengeComplete, createChallenge, endChallenge, autoExpireChallenges, listActiveChallenges, listEndedChallenges, approveChallengeCompletion, rejectChallengeCompletion, listChallengesWithPendingReview } from "./challenges.js";
+import { getCurrentChallenge, markChallengeComplete, createChallenge, endChallenge, autoExpireChallenges, listActiveChallenges, listEndedChallenges, approveChallengeCompletion, rejectChallengeCompletion, listChallengesWithPendingReview, autoResolveStalePendingReviews } from "./challenges.js";
 import { registerRoute, setBeforeEach, setOnRouteChange, startRouter, navigate } from "./router.js";
 import { showToast, showConfirm } from "./utils.js";
 
@@ -180,6 +180,7 @@ async function renderHomePage(container) {
       <div class="home-section-head">
         <svg class="icon" viewBox="0 0 24 24"><path d="M5 3v18M5 4h11l-2 3.5L16 11H5"/></svg>
         <h2>本週挑戰</h2>
+        <a href="#/challenges" id="home-challenge-count" class="more hidden"></a>
       </div>
       <div id="home-challenge"><div class="empty-state">載入中…</div></div>
     </div>
@@ -352,7 +353,22 @@ async function loadHomeRecipeSections() {
   }
 }
 
+/** 管理員登入時，如果有待審核的挑戰申請，主動跳提示提醒（純前端能做到的最接近「通知」的做法） */
+async function notifyAdminOfPendingReviews() {
+  if (!isAdmin()) return;
+  try {
+    const withPending = await listChallengesWithPendingReview();
+    const total = withPending.reduce((sum, c) => sum + (c.pendingReview || []).length, 0);
+    if (total > 0) {
+      showToast(`你有 ${total} 筆挑戰待審核，記得去「本週挑戰」看看`);
+    }
+  } catch (err) {
+    console.error("待審核提醒失敗", err);
+  }
+}
+
 const ICON_CHALLENGE = '<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+const ICON_CLOCK_URGENT = '<svg class="icon icon-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
 
 /** 距離期限還有幾天（今天算 0），deadline 是 "YYYY-MM-DD" */
 function daysUntil(deadline) {
@@ -368,11 +384,22 @@ const ICON_CHECK_SM = '<svg class="icon icon-sm icon-solid" viewBox="0 0 24 24">
 
 async function loadHomeChallenge() {
   const el = document.getElementById("home-challenge");
+  const countEl = document.getElementById("home-challenge-count");
   if (!el) return;
 
   try {
     const allActive = await listActiveChallenges();
     const challenge = allActive[0];
+
+    if (countEl) {
+      if (allActive.length > 1) {
+        countEl.textContent = `共 ${allActive.length} 個 ›`;
+        countEl.classList.remove("hidden");
+      } else {
+        countEl.classList.add("hidden");
+      }
+    }
+
     if (!challenge) {
       el.innerHTML = `<div class="empty-state">還沒有挑戰資料，等管理員發布挑戰後會顯示在這裡。</div>`;
       return;
@@ -399,11 +426,10 @@ async function loadHomeChallenge() {
         <div class="challenge-body">
           <div class="challenge-title">${challenge.title}</div>
           ${challenge.description ? `<div class="challenge-desc">${challenge.description}</div>` : ""}
-          ${challenge.deadline ? `<div class="challenge-deadline ${urgent ? "urgent" : ""}">${urgent ? "快到期！" : "期限至"} ${challenge.deadline}</div>` : ""}
+          ${challenge.deadline ? `<div class="challenge-deadline ${urgent ? "urgent" : ""}">${urgent ? ICON_CLOCK_URGENT : ""}${urgent ? "快到期・" : "期限至"} ${challenge.deadline}</div>` : ""}
         </div>
         ${btnHtml}
       </div>
-      ${allActive.length > 1 ? `<a href="#/challenges" class="challenge-more-link">還有 ${allActive.length - 1} 個進行中的挑戰，看全部 ›</a>` : ""}
     `;
 
     const btn = document.getElementById("home-challenge-btn");
@@ -487,7 +513,7 @@ async function renderAllChallengesList() {
             <div class="challenge-admin-item-title">${c.title}</div>
             ${c.description ? `<div class="challenge-admin-item-desc">${c.description}</div>` : ""}
             <div class="challenge-admin-item-meta">
-              <span class="${urgent ? "urgent" : ""}">${urgent ? "快到期！" : "期限至"} ${c.deadline}</span>
+              <span class="${urgent ? "urgent" : ""}">${urgent ? "快到期・" : "期限至"} ${c.deadline}</span>
               <span>${(c.completedBy || []).length} 人已完成</span>
             </div>
             ${btnHtml}
@@ -1060,6 +1086,8 @@ async function boot() {
       cleanupExpiredEntries(getCurrentMember()?.uid).catch((err) => console.error("日記過期清理失敗", err));
       catchUpWeeklySummaries(getCurrentMember()?.uid).catch((err) => console.error("每週結算補算失敗", err));
       autoExpireChallenges().catch((err) => console.error("挑戰自動到期檢查失敗", err));
+      autoResolveStalePendingReviews().catch((err) => console.error("挑戰待審核逾期檢查失敗", err));
+      notifyAdminOfPendingReviews();
       if (window.location.hash === "#/login" || !window.location.hash) {
         navigate("/home");
       }
