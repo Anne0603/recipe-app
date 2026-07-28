@@ -345,18 +345,12 @@ async function renderAppConfigPage(container) {
       </div>
     </div>
 
-    <div class="settings-group">
-      <div class="settings-group-title">${ICON_CHALLENGE_ADMIN}本週挑戰</div>
-      <div class="settings-card" id="challenge-admin-card">載入中…</div>
-    </div>
-
     <div class="settings-save-bar">
       <button id="app-config-save-btn" class="btn btn-primary settings-save-btn">儲存</button>
     </div>
   `;
 
   document.getElementById("config-back").addEventListener("click", () => navigate("/settings"));
-  renderChallengeAdminCard();
 
   document.getElementById("app-config-save-btn").addEventListener("click", async () => {
     const updates = {
@@ -375,7 +369,26 @@ async function renderAppConfigPage(container) {
   });
 }
 
-/** 管理設定頁裡的「本週挑戰」管理卡片：顯示目前進行中的挑戰、可結束，並提供發布新挑戰的表單 */
+/** 「本週挑戰」管理頁面（#/challenge-admin）：管理員專屬，跟管理設定平行、不再巢狀在裡面 */
+async function renderChallengeAdminPage(container) {
+  if (!isAdmin()) {
+    container.innerHTML = `<div class="placeholder-page"><p>這頁只有管理員能用</p></div>`;
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="page-head">
+      <button id="challenge-admin-back" class="back-btn"><svg class="icon" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+      <h1>本週挑戰</h1>
+    </div>
+    <div class="settings-card" id="challenge-admin-card" style="margin:0 16px">載入中…</div>
+  `;
+
+  document.getElementById("challenge-admin-back").addEventListener("click", () => navigate("/settings"));
+  renderChallengeAdminCard();
+}
+
+/** 挑戰管理卡片內容：顯示目前進行中的挑戰、可結束，並提供發布新挑戰的表單 */
 async function renderChallengeAdminCard() {
   const card = document.getElementById("challenge-admin-card");
   if (!card) return;
@@ -489,14 +502,24 @@ function renderSettingsPage(container) {
       isAdmin()
         ? `<div class="settings-group">
             <div class="settings-group-title">管理員專區</div>
-            <a href="#/app-config" class="settings-link-card">
-              <div class="settings-link-icon">${ICON_GEAR}</div>
-              <div class="settings-link-text">
-                <div class="settings-link-title">管理設定</div>
-                <div class="settings-link-desc">第三方服務金鑰、料理日記保留期限</div>
-              </div>
-              <svg class="icon settings-link-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
-            </a>
+            <div class="settings-link-stack">
+              <a href="#/app-config" class="settings-link-card">
+                <div class="settings-link-icon">${ICON_GEAR}</div>
+                <div class="settings-link-text">
+                  <div class="settings-link-title">管理設定</div>
+                  <div class="settings-link-desc">第三方服務金鑰、料理日記保留期限</div>
+                </div>
+                <svg class="icon settings-link-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+              </a>
+              <a href="#/challenge-admin" class="settings-link-card">
+                <div class="settings-link-icon">${ICON_CHALLENGE_ADMIN}</div>
+                <div class="settings-link-text">
+                  <div class="settings-link-title">本週挑戰</div>
+                  <div class="settings-link-desc">發布新挑戰、結束目前的挑戰</div>
+                </div>
+                <svg class="icon settings-link-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+              </a>
+            </div>
           </div>`
         : ""
     }
@@ -593,6 +616,7 @@ registerRoute("/friends", renderFriendsListPage);
 registerRoute("/friends/:uid", renderMemberProfilePage, { hideTabbar: true });
 registerRoute("/settings", renderSettingsPage);
 registerRoute("/app-config", renderAppConfigPage, { hideTabbar: true });
+registerRoute("/challenge-admin", renderChallengeAdminPage, { hideTabbar: true });
 
 // 換頁前檢查：設定沒填齊 → 強制留在 /setup；沒登入 → 強制留在 /login
 setBeforeEach((path) => {

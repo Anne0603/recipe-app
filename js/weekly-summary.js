@@ -5,16 +5,14 @@
    Discord 通知（等通知系統做好再一起接），所以現在完全沒有
    畫面會顯示這些數字，是純後端邏輯，先打底。
 
-   ⚠️ 誠實說明一個資料限制：
-   文件裡「有異動通知」15 句範本，其中「這週被存了 X 次」
-   「這週挑戰完成率 X%」「留言獲得 X 個讚」這幾項，需要「事件
-   發生的時間點」才能回推算出「這一週內」發生了幾次——但目前
-   愛心、留言按讚、挑戰完成都只存「目前的狀態」（例如 likedBy
-   清單），沒有存「每一次按讚/完成的時間戳記」。
-   這裡先只算「這週煮了幾道菜」「這週新增了幾道食譜」這兩項
-   （日記的 date、食譜的 createdAt 本來就有存，可以準確回推），
-   其他項目要等之後幫按讚/留言/挑戰完成也加上事件時間戳記
-   （event log）才能準確算，不在這裡編假數字充數。
+   「這週被按讚幾次」現在可以準確算了：recipes.js 的 toggleLike
+   每次真的按讚（不含取消）都會順便在 likeEvents 這個集合記一筆
+   帶時間戳記的事件，這裡直接依時間範圍撈出來算，不是編的假數字。
+
+   還沒能準確算的項目：「這週留言被讚幾次」「這週完成挑戰幾次」
+   「連續登入到那週末是幾天」——這三項現在還是只存「目前的狀態」，
+   沒有帶時間戳記的事件紀錄，之後想做的話，作法跟 likeEvents
+   一樣（留言按讚/挑戰完成時各自也记一筆事件），現在先不編假數字。
 
    純前端定時任務的做法：使用者資料存「上次算到哪一週」
    （lastSummarizedWeekStart），有人開 APP 時（登入成功後）
@@ -67,9 +65,24 @@ function toDateStrFromTimestamp(ts) {
   return formatDateStr(new Date(millis));
 }
 
-/** 算某使用者在某週（含頭尾）的統計數字。只算得準「煮了幾次」「新增幾道食譜」 */
+/** 這週被按讚幾次（依 likeEvents 的時間戳記回推，單一條件查詢＋前端篩日期） */
+async function countHeartsReceivedInWeek(uid, weekStart, weekEnd) {
+  const db = getDbInstance();
+  const q = query(collection(db, "likeEvents"), where("recipeOwnerId", "==", uid));
+  const snap = await getDocs(q);
+  return snap.docs.filter((d) => {
+    const dateStr = toDateStrFromTimestamp(d.data().createdAt);
+    return dateStr && dateStr >= weekStart && dateStr <= weekEnd;
+  }).length;
+}
+
+/** 算某使用者在某週（含頭尾）的統計數字 */
 async function computeWeekStats(uid, weekStart, weekEnd) {
-  const [entries, recipes] = await Promise.all([listMyDiaryEntries(uid), listMyOwnRecipes(uid)]);
+  const [entries, recipes, heartsReceived] = await Promise.all([
+    listMyDiaryEntries(uid),
+    listMyOwnRecipes(uid),
+    countHeartsReceivedInWeek(uid, weekStart, weekEnd),
+  ]);
 
   const cookCount = entries.filter((e) => e.date && e.date >= weekStart && e.date <= weekEnd).length;
 
@@ -78,7 +91,7 @@ async function computeWeekStats(uid, weekStart, weekEnd) {
     return d && d >= weekStart && d <= weekEnd;
   }).length;
 
-  return { cookCount, newRecipeCount };
+  return { cookCount, newRecipeCount, heartsReceived };
 }
 
 async function weeklySummaryExists(uid, weekStart) {

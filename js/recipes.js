@@ -193,6 +193,7 @@ export async function getRecentPublicRecipes(count = 3) {
  * @returns {Promise<boolean>} 切換後是否為「已收藏」狀態
  */
 export async function toggleLike(recipeId, uid) {
+  const db = getDbInstance();
   const recipe = await getRecipe(recipeId);
   if (!recipe) throw new Error("找不到這道食譜");
 
@@ -210,6 +211,17 @@ export async function toggleLike(recipeId, uid) {
   });
 
   await updateRecipe(recipeId, { likedBy: nextLikedBy, everLikedBy: nextEverLikedBy, popularityScore });
+
+  if (!alreadyLiked) {
+    // 記一筆帶時間戳記的按讚事件（跟 everLikedBy 防灌水機制分開），
+    // 讓「每週結算」能準確回推「這週被按了幾次讚」，不論是不是同一人重複按
+    await addDoc(collection(db, "likeEvents"), {
+      recipeId,
+      recipeOwnerId: recipe.ownerId,
+      likerUid: uid,
+      createdAt: serverTimestamp(),
+    });
+  }
 
   if (isFirstTimeLike) {
     await incrementBadgeCounter(recipe.ownerId, "popularity");

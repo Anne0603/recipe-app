@@ -29,7 +29,7 @@ const WHEEL_ITEM_H = 42;
 function openWheelYearMonthPicker(currentYear, currentMonth, onConfirm) {
   const thisYear = new Date().getFullYear();
   const years = [];
-  for (let y = thisYear - 10; y <= thisYear + 3; y++) years.push(y);
+  for (let y = thisYear - 15; y <= thisYear + 10; y++) years.push(y);
   const months = Array.from({ length: 12 }, (_, i) => i);
 
   const overlay = document.createElement("div");
