@@ -65,10 +65,19 @@ export async function resolveMember(firebaseUser) {
     return "disabled";
   }
 
-  // 更新最後登入時間（連續登入天數的計算屬於徽章系統，之後在 badges.js 處理）
-  await setDoc(memberRef, { lastLoginAt: serverTimestamp() }, { merge: true });
+  // 同步 Google 頭貼（每次登入都更新，因為大頭貼可能換）；displayName 只在管理員沒手動填時才自動帶入
+  // 補上「加入時間」：如果這筆資料還沒有 joinedAt（例如手動建的第一個管理員帳號），這裡補記第一次成功登入的時間
+  const syncUpdates = { lastLoginAt: serverTimestamp(), photoURL: firebaseUser.photoURL || "" };
+  if (!data.displayName) syncUpdates.displayName = firebaseUser.displayName || "";
+  if (!data.joinedAt) syncUpdates.joinedAt = serverTimestamp();
+  await setDoc(memberRef, syncUpdates, { merge: true });
 
-  currentMember = { uid: firebaseUser.uid, ...data };
+  currentMember = {
+    uid: firebaseUser.uid,
+    ...data,
+    photoURL: syncUpdates.photoURL,
+    displayName: data.displayName || syncUpdates.displayName || "",
+  };
   return "ok";
 }
 

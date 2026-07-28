@@ -19,6 +19,7 @@ import { getTopPublicRecipes, getRecentPublicRecipes } from "./recipes.js";
 import { openLotteryFlow } from "./lottery.js";
 import { renderDiaryPage } from "./diary-pages.js";
 import { cleanupExpiredEntries } from "./diary.js";
+import { renderFriendsListPage, renderMemberProfilePage } from "./friends-pages.js";
 import { registerRoute, setBeforeEach, setOnRouteChange, startRouter, navigate } from "./router.js";
 import { showToast } from "./utils.js";
 
@@ -433,7 +434,8 @@ registerRoute("/recipes/:id/edit", renderRecipeFormPage, { hideTabbar: true });
 registerRoute("/recipes/:id", renderRecipeDetailPage, { hideTabbar: true });
 registerRoute("/diary", renderDiaryPage);
 registerRoute("/expenses", renderPlaceholderPage("花費記錄"));
-registerRoute("/friends", renderPlaceholderPage("朋友"));
+registerRoute("/friends", renderFriendsListPage);
+registerRoute("/friends/:uid", renderMemberProfilePage, { hideTabbar: true });
 registerRoute("/settings", renderSettingsPage);
 registerRoute("/app-config", renderAppConfigPage, { hideTabbar: true });
 
