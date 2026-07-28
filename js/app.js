@@ -39,6 +39,7 @@ const ICON_PALETTE = '<svg class="icon" viewBox="0 0 24 24"><path d="M12 3a9 9 0
 const ICON_GEAR = '<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.6 2 3.4 2.4-1c.6.5 1.3.9 2 1.2L10 21h4l.5-2.6c.7-.3 1.4-.7 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2Z"/></svg>';
 const ICON_LOGOUT = '<svg class="icon" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>';
 const ICON_CAMERA_SM = '<svg class="icon" viewBox="0 0 24 24" style="width:12px;height:12px"><rect x="3" y="6" width="18" height="14" rx="2"/><circle cx="12" cy="13" r="3.5"/><path d="M8 6l1.5-2h5L16 6"/></svg>';
+const ICON_REFRESH = '<svg class="icon" viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 13.66-5.66M20 12a8 8 0 0 1-13.66 5.66"/><path d="M17 3v4h-4M7 21v-4h4"/></svg>';
 
 const THEME_OPTIONS = [
   { value: "terracotta", label: "陶土橘", swatch: "#D9773F" },
@@ -880,6 +881,16 @@ function renderSettingsPage(container) {
     </div>
 
     <div class="settings-group">
+      <button type="button" id="settings-refresh-btn" class="settings-link-card">
+        <div class="settings-link-icon">${ICON_REFRESH}</div>
+        <div class="settings-link-text">
+          <div class="settings-link-title">重新整理 APP</div>
+          <div class="settings-link-desc">畫面看起來卡卡的、或功能好像沒更新時按這個</div>
+        </div>
+      </button>
+    </div>
+
+    <div class="settings-group">
       <div class="settings-group-title">${ICON_PALETTE}外觀</div>
       <div class="settings-card">
         <div class="theme-swatch-row">
@@ -938,6 +949,11 @@ function renderSettingsPage(container) {
       </button>
     </div>
   `;
+
+  document.getElementById("settings-refresh-btn").addEventListener("click", () => {
+    const base = window.location.origin + window.location.pathname;
+    window.location.href = `${base}?v=${Date.now()}#/home`;
+  });
 
   const avatarBtn = document.getElementById("avatar-upload-btn");
   const avatarInput = document.getElementById("avatar-file-input");
