@@ -22,7 +22,7 @@ import { renderDiaryPage } from "./diary-pages.js";
 import { cleanupExpiredEntries } from "./diary.js";
 import { catchUpWeeklySummaries } from "./weekly-summary.js";
 import { renderFriendsListPage, renderMemberProfilePage } from "./friends-pages.js";
-import { getCurrentChallenge, markChallengeComplete, createChallenge, endChallenge } from "./challenges.js";
+import { getCurrentChallenge, markChallengeComplete, createChallenge, endChallenge, autoExpireChallenges, listActiveChallenges, listEndedChallenges } from "./challenges.js";
 import { registerRoute, setBeforeEach, setOnRouteChange, startRouter, navigate } from "./router.js";
 import { showToast, showConfirm } from "./utils.js";
 
@@ -260,6 +260,7 @@ async function loadHomeChallenge() {
         <div class="challenge-body">
           <div class="challenge-title">${challenge.title}</div>
           ${challenge.description ? `<div class="challenge-desc">${challenge.description}</div>` : ""}
+          ${challenge.deadline ? `<div class="challenge-deadline">期限至 ${challenge.deadline}</div>` : ""}
         </div>
         <button type="button" id="home-challenge-btn" class="challenge-status-btn ${done ? "done" : ""}" ${done ? "disabled" : ""}>
           ${done ? `${ICON_CHECK_SM}已完成` : "標記完成"}
@@ -376,85 +377,125 @@ async function renderChallengeAdminPage(container) {
     return;
   }
 
+  const defaultDeadline = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  })();
+
   container.innerHTML = `
     <div class="page-head">
       <button id="challenge-admin-back" class="back-btn"><svg class="icon" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
       <h1>本週挑戰</h1>
     </div>
-    <div class="settings-card" id="challenge-admin-card" style="margin:0 16px">載入中…</div>
+
+    <div class="settings-group">
+      <div class="settings-group-title">發布新挑戰</div>
+      <div class="settings-card">
+        <div class="field">
+          <label for="challenge-title-input">標題</label>
+          <input type="text" id="challenge-title-input" placeholder="例如：這週煮 3 道不重複的菜">
+        </div>
+        <div class="field">
+          <label for="challenge-desc-input">說明（可空）</label>
+          <textarea id="challenge-desc-input" placeholder="補充規則或提示"></textarea>
+        </div>
+        <div class="field" style="margin-bottom:0">
+          <label for="challenge-deadline-input">期限（到這天為止，過了自動結束）</label>
+          <input type="date" id="challenge-deadline-input" value="${defaultDeadline}">
+        </div>
+        <button type="button" id="challenge-create-btn" class="btn btn-primary" style="margin-top:12px;width:100%">發布新挑戰</button>
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <div class="settings-group-title">進行中</div>
+      <div id="challenge-active-list" class="challenge-admin-list"><p class="form-hint" style="padding:0 16px">載入中…</p></div>
+    </div>
+
+    <div class="settings-group">
+      <div class="settings-group-title">已結束</div>
+      <div id="challenge-ended-list" class="challenge-admin-list"><p class="form-hint" style="padding:0 16px">載入中…</p></div>
+    </div>
   `;
 
   document.getElementById("challenge-admin-back").addEventListener("click", () => navigate("/settings"));
-  renderChallengeAdminCard();
+
+  document.getElementById("challenge-create-btn").addEventListener("click", async () => {
+    const title = document.getElementById("challenge-title-input").value.trim();
+    const desc = document.getElementById("challenge-desc-input").value.trim();
+    const deadline = document.getElementById("challenge-deadline-input").value;
+    if (!title) {
+      showToast("請填挑戰標題");
+      return;
+    }
+    if (!deadline) {
+      showToast("請選期限");
+      return;
+    }
+    try {
+      await createChallenge(title, desc, deadline, getCurrentMember()?.uid);
+      showToast("已發布新挑戰");
+      document.getElementById("challenge-title-input").value = "";
+      document.getElementById("challenge-desc-input").value = "";
+      loadChallengeLists();
+    } catch (err) {
+      console.error(err);
+      showToast("發布失敗，請再試一次");
+    }
+  });
+
+  loadChallengeLists();
 }
 
-/** 挑戰管理卡片內容：顯示目前進行中的挑戰、可結束，並提供發布新挑戰的表單 */
-async function renderChallengeAdminCard() {
-  const card = document.getElementById("challenge-admin-card");
-  if (!card) return;
+function challengeAdminCardHtml(c, { ended }) {
+  return `
+    <div class="challenge-admin-item ${ended ? "ended" : ""}">
+      <div class="challenge-admin-item-title">${c.title}</div>
+      ${c.description ? `<div class="challenge-admin-item-desc">${c.description}</div>` : ""}
+      <div class="challenge-admin-item-meta">
+        <span>${ended ? "期限至" : "還剩到"} ${c.deadline}</span>
+        <span>${(c.completedBy || []).length} 人已完成</span>
+      </div>
+      ${!ended ? `<button type="button" class="btn btn-ghost challenge-admin-end-btn" data-id="${c.id}" data-title="${c.title}">結束這個挑戰</button>` : ""}
+    </div>
+  `;
+}
+
+async function loadChallengeLists() {
+  const activeEl = document.getElementById("challenge-active-list");
+  const endedEl = document.getElementById("challenge-ended-list");
+  if (!activeEl || !endedEl) return;
 
   try {
-    const current = await getCurrentChallenge();
+    const [active, ended] = await Promise.all([listActiveChallenges(), listEndedChallenges()]);
 
-    card.innerHTML = `
-      ${
-        current
-          ? `<div class="challenge-admin-current">
-              <div class="challenge-admin-current-label">目前進行中</div>
-              <div class="challenge-admin-current-title">${current.title}</div>
-              ${current.description ? `<div class="challenge-admin-current-desc">${current.description}</div>` : ""}
-              <div class="challenge-admin-current-meta">${(current.completedBy || []).length} 人已完成</div>
-              <button type="button" id="challenge-end-btn" class="btn btn-ghost">結束這個挑戰</button>
-            </div>`
-          : `<p class="form-hint">目前沒有進行中的挑戰。</p>`
-      }
+    activeEl.innerHTML = active.length
+      ? active.map((c) => challengeAdminCardHtml(c, { ended: false })).join("")
+      : `<p class="form-hint" style="padding:0 16px">目前沒有進行中的挑戰。</p>`;
 
-      <div class="field" style="margin-top:14px">
-        <label for="challenge-title-input">新挑戰標題</label>
-        <input type="text" id="challenge-title-input" placeholder="例如：這週煮 3 道不重複的菜">
-      </div>
-      <div class="field" style="margin-bottom:0">
-        <label for="challenge-desc-input">說明（可空）</label>
-        <textarea id="challenge-desc-input" placeholder="補充規則或提示"></textarea>
-      </div>
-      <button type="button" id="challenge-create-btn" class="btn btn-primary" style="margin-top:12px;width:100%">發布新挑戰</button>
-    `;
+    endedEl.innerHTML = ended.length
+      ? ended.map((c) => challengeAdminCardHtml(c, { ended: true })).join("")
+      : `<p class="form-hint" style="padding:0 16px">還沒有結束過的挑戰。</p>`;
 
-    const endBtn = document.getElementById("challenge-end-btn");
-    if (endBtn) {
-      endBtn.addEventListener("click", async () => {
-        const ok = await showConfirm(`確定要結束「${current.title}」這個挑戰嗎？`);
+    activeEl.querySelectorAll(".challenge-admin-end-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const ok = await showConfirm(`確定要結束「${btn.dataset.title}」這個挑戰嗎？`);
         if (!ok) return;
         try {
-          await endChallenge(current.id);
+          await endChallenge(btn.dataset.id);
           showToast("已結束");
-          renderChallengeAdminCard();
+          loadChallengeLists();
         } catch (err) {
           console.error(err);
           showToast("操作失敗，請再試一次");
         }
       });
-    }
-
-    document.getElementById("challenge-create-btn").addEventListener("click", async () => {
-      const title = document.getElementById("challenge-title-input").value.trim();
-      const desc = document.getElementById("challenge-desc-input").value.trim();
-      if (!title) {
-        showToast("請填挑戰標題");
-        return;
-      }
-      try {
-        await createChallenge(title, desc, getCurrentMember()?.uid);
-        showToast("已發布新挑戰");
-        renderChallengeAdminCard();
-      } catch (err) {
-        console.error(err);
-        showToast("發布失敗，請再試一次");
-      }
     });
   } catch (err) {
     console.error(err);
-    card.innerHTML = `<p class="form-hint">載入失敗，請重新整理再試。</p>`;
+    activeEl.innerHTML = `<p class="form-hint" style="padding:0 16px">載入失敗，請重新整理再試。</p>`;
+    endedEl.innerHTML = "";
   }
 }
 
@@ -670,6 +711,7 @@ async function boot() {
       updateTabbarVisibility();
       cleanupExpiredEntries(getCurrentMember()?.uid).catch((err) => console.error("日記過期清理失敗", err));
       catchUpWeeklySummaries(getCurrentMember()?.uid).catch((err) => console.error("每週結算補算失敗", err));
+      autoExpireChallenges().catch((err) => console.error("挑戰自動到期檢查失敗", err));
       if (window.location.hash === "#/login" || !window.location.hash) {
         navigate("/home");
       }
