@@ -107,7 +107,7 @@ export function recipeCardHtml(recipe) {
         <div class="recipe-name">${recipe.name}</div>
         <div class="recipe-tags">${styleTags}</div>
         <div class="recipe-meta">
-          <div class="recipe-owner">${recipe.ownerName ? `<div class="avatar-sm">${initials(recipe.ownerName)}</div>${recipe.ownerName}` : ""}</div>
+          <div class="recipe-owner">${recipe.ownerName ? `${avatarHtml({ displayName: recipe.ownerName, photoURL: recipe.ownerPhotoURL }, "avatar-sm")}${recipe.ownerName}` : ""}</div>
           <div class="recipe-like-count">${ICON_HEART}${(recipe.likedBy || []).length}</div>
         </div>
       </div>
@@ -120,9 +120,11 @@ async function attachOwnerNames(recipes) {
   for (const r of recipes) {
     if (!cache.has(r.ownerId)) {
       const owner = await getMemberById(r.ownerId);
-      cache.set(r.ownerId, owner?.displayName || "");
+      cache.set(r.ownerId, { name: owner?.displayName || "", photoURL: owner?.photoURL || "" });
     }
-    r.ownerName = cache.get(r.ownerId);
+    const info = cache.get(r.ownerId);
+    r.ownerName = info.name;
+    r.ownerPhotoURL = info.photoURL;
   }
   return recipes;
 }

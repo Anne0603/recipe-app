@@ -102,6 +102,16 @@ export async function updateMyAvatar(photoURL) {
   currentMember.hasCustomAvatar = true;
 }
 
+/** 使用者自己在 APP 裡編輯個人資料（名字、一句話簡介） */
+export async function updateMyProfile(displayName, bio) {
+  if (!currentMember) return;
+  const db = getDbInstance();
+  const updates = { displayName: displayName.trim(), bio: (bio || "").trim() };
+  await setDoc(doc(db, "users", currentMember.uid), updates, { merge: true });
+  currentMember.displayName = updates.displayName;
+  currentMember.bio = updates.bio;
+}
+
 /** 監聽登入狀態變化，callback 收到 firebaseUser（未登入為 null） */
 export function watchAuthState(callback) {
   onAuthStateChanged(getAuthInstance(), callback);

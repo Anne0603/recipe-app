@@ -12,7 +12,7 @@
 
 import { isConfigComplete, getMissingFields } from "./config-check.js";
 import { initFirebase } from "./firebase-init.js";
-import { signInWithGoogle, signOutUser, resolveMember, watchAuthState, getCurrentMember, isAdmin, updateMyTheme, updateMyAvatar, getMemberById } from "./auth.js";
+import { signInWithGoogle, signOutUser, resolveMember, watchAuthState, getCurrentMember, isAdmin, updateMyTheme, updateMyAvatar, updateMyProfile, getMemberById } from "./auth.js";
 import { getAppSettings, saveAppSettings, isAppSettingsComplete } from "./app-settings.js";
 import { uploadRecipeImage } from "./recipe-images.js";
 import { renderRecipeListPage, renderRecipeDetailPage, renderRecipeFormPage, renderSearchPage } from "./recipe-pages.js";
@@ -40,6 +40,7 @@ const ICON_PALETTE = '<svg class="icon" viewBox="0 0 24 24"><path d="M12 3a9 9 0
 const ICON_GEAR = '<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.6 2 3.4 2.4-1c.6.5 1.3.9 2 1.2L10 21h4l.5-2.6c.7-.3 1.4-.7 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2Z"/></svg>';
 const ICON_LOGOUT = '<svg class="icon" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>';
 const ICON_CAMERA_SM = '<svg class="icon" viewBox="0 0 24 24" style="width:12px;height:12px"><rect x="3" y="6" width="18" height="14" rx="2"/><circle cx="12" cy="13" r="3.5"/><path d="M8 6l1.5-2h5L16 6"/></svg>';
+const ICON_EDIT_SM = '<svg class="icon" viewBox="0 0 24 24" style="width:15px;height:15px"><path d="M4 20h4L18 10l-4-4L4 16v4Z"/></svg>';
 const ICON_REFRESH = '<svg class="icon" viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 13.66-5.66M20 12a8 8 0 0 1-13.66 5.66"/><path d="M17 3v4h-4M7 21v-4h4"/></svg>';
 
 const THEME_OPTIONS = [
@@ -981,6 +982,51 @@ async function loadChallengeLists() {
    個人化設定（通知開關、Discord Webhook 等）之後功能討論到
    再補進來。
 --------------------------------------------------------- */
+function openEditProfileModal(member, onSaved) {
+  const overlay = document.createElement("div");
+  overlay.className = "picker-overlay";
+  overlay.innerHTML = `
+    <div class="picker-box">
+      <button type="button" class="dialog-close picker-close" aria-label="關閉">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+      <div class="sheet-title">編輯個人資料</div>
+      <div class="field">
+        <label for="edit-profile-name">名字（最多 10 個字）</label>
+        <input type="text" id="edit-profile-name" maxlength="10" value="${member?.displayName || ""}">
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label for="edit-profile-bio">一句話簡介（可空，別人到你主頁會看到）</label>
+        <input type="text" id="edit-profile-bio" maxlength="30" placeholder="例如：無辣不歡" value="${member?.bio || ""}">
+      </div>
+      <button type="button" id="edit-profile-save" class="sheet-confirm" style="margin-top:14px">儲存</button>
+    </div>
+  `;
+  overlay.querySelector(".picker-close").addEventListener("click", () => overlay.remove());
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) overlay.remove();
+  });
+  document.body.appendChild(overlay);
+
+  document.getElementById("edit-profile-save").addEventListener("click", async () => {
+    const name = document.getElementById("edit-profile-name").value.trim();
+    const bio = document.getElementById("edit-profile-bio").value.trim();
+    if (!name) {
+      showToast("名字不能空白");
+      return;
+    }
+    try {
+      await updateMyProfile(name, bio);
+      overlay.remove();
+      showToast("已儲存");
+      onSaved();
+    } catch (err) {
+      console.error(err);
+      showToast("儲存失敗，請再試一次");
+    }
+  });
+}
+
 function renderSettingsPage(container) {
   const member = getCurrentMember();
   const currentTheme = member?.theme || "terracotta";
@@ -994,10 +1040,12 @@ function renderSettingsPage(container) {
         <span class="settings-avatar-edit-badge">${ICON_CAMERA_SM}</span>
       </button>
       <input type="file" id="avatar-file-input" accept="image/*" class="hidden" />
-      <div>
+      <div class="settings-profile-info">
         <div class="settings-profile-name">${member?.displayName || ""}</div>
         <div class="settings-profile-role">${isAdmin() ? "管理員" : "一般成員"}</div>
+        ${member?.bio ? `<div class="settings-profile-bio">${member.bio}</div>` : ""}
       </div>
+      <button type="button" id="edit-profile-btn" class="settings-profile-edit-btn" aria-label="編輯個人資料">${ICON_EDIT_SM}</button>
     </div>
 
     <div class="settings-group">
@@ -1093,6 +1141,8 @@ function renderSettingsPage(container) {
       renderSettingsPage(container);
     }
   });
+
+  document.getElementById("edit-profile-btn").addEventListener("click", () => openEditProfileModal(member, () => renderSettingsPage(container)));
 
   container.querySelectorAll(".theme-swatch-btn").forEach((btn) => {
     btn.addEventListener("click", async () => {

@@ -63,7 +63,7 @@ export async function renderFriendsListPage(container) {
             ${avatarHtml(m, "md")}
             <div class="friend-row-text">
               <div class="friend-row-name">${m.displayName || "朋友"}</div>
-              <div class="friend-row-sub">${m.lastActiveAt ? "最近有新分享" : formatJoinedDate(m.joinedAt) || "成員"}</div>
+              <div class="friend-row-sub">${m.bio || (m.lastActiveAt ? "最近有新分享" : formatJoinedDate(m.joinedAt) || "成員")}</div>
             </div>
             ${ICON_CHEV_RIGHT}
           </a>`
@@ -100,6 +100,7 @@ export async function renderMemberProfilePage(container, params) {
     <div class="friend-profile-head">
       ${avatarHtml(member, "lg")}
       <div class="friend-profile-name">${member.displayName || "朋友"}</div>
+      ${member.bio ? `<div class="friend-profile-bio">${member.bio}</div>` : ""}
       <div class="friend-profile-joined">${formatJoinedDate(member.joinedAt)}</div>
     </div>
 
