@@ -13,6 +13,7 @@ import { showToast } from "./utils.js";
 const ICON_NO_PHOTO = '<svg class="icon" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M3 16l5-4 3 3 4-4 5 5"/></svg>';
 const ICON_HEART = '<svg class="icon" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 1 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78Z"/></svg>';
 const ICON_BADGE = '<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="9" r="6"/><path d="M9 14.5L7 21l5-3 5 3-2-6.5"/></svg>';
+const ICON_TROPHY_SM = '<svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M5 3v18M5 4h11l-2 3.5L16 11H5"/></svg>';
 const ICON_BOOK = '<svg class="icon" viewBox="0 0 24 24"><path d="M5 4a2 2 0 0 1 2-2h11v18H7a2 2 0 0 0-2 2V4Z"/><path d="M8 7h6M8 10h6"/></svg>';
 const ICON_CHEV_RIGHT = '<svg class="icon" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>';
 
@@ -218,8 +219,16 @@ async function handleBadgeClick(key, { member, stats, badges }) {
   if (key === "loginStreak") {
     showInfoModal(
       "連續登入",
-      `<p>目前連續 <strong>${member.loginStreakCurrent || 0}</strong> 天</p>
-       <p>歷史最高 <strong>${badge?.count || 0}</strong> 天</p>`
+      `<div class="badge-detail-stats">
+         <div class="badge-detail-stat">
+           <div class="badge-detail-stat-val">${member.loginStreakCurrent || 0}</div>
+           <div class="badge-detail-stat-label">目前連續天數</div>
+         </div>
+         <div class="badge-detail-stat">
+           <div class="badge-detail-stat-val">${badge?.count || 0}</div>
+           <div class="badge-detail-stat-label">歷史最高天數</div>
+         </div>
+       </div>`
     );
     return;
   }
@@ -230,8 +239,17 @@ async function handleBadgeClick(key, { member, stats, badges }) {
     const diff = Math.max(0, cumulative - live);
     showInfoModal(
       "分享",
-      `<p>累計分享過 <strong>${cumulative}</strong> 道食譜（達成徽章用的數字，只會往上加）</p>
-       <p>目前還在公開的有 <strong>${live}</strong> 道${diff > 0 ? `，另外 ${diff} 道後來設回私人，但仍計入這個成就` : ""}</p>`
+      `<div class="badge-detail-stats">
+         <div class="badge-detail-stat">
+           <div class="badge-detail-stat-val">${cumulative}</div>
+           <div class="badge-detail-stat-label">累計分享過</div>
+         </div>
+         <div class="badge-detail-stat">
+           <div class="badge-detail-stat-val">${live}</div>
+           <div class="badge-detail-stat-label">目前公開中</div>
+         </div>
+       </div>
+       <p class="badge-detail-note">徽章看的是「累計分享過」，只會往上加${diff > 0 ? `；另外 ${diff} 道後來設回私人，還是有算進成就裡` : ""}</p>`
     );
     return;
   }
@@ -241,8 +259,17 @@ async function handleBadgeClick(key, { member, stats, badges }) {
     const live = stats.totalHearts;
     showInfoModal(
       "人氣",
-      `<p>歷史累計收到 <strong>${cumulative}</strong> 次愛心（達成徽章用的數字，只會往上加）</p>
-       <p>目前即時收藏數是 <strong>${live}</strong>${cumulative > live ? "，可能是有人後來取消收藏" : ""}</p>`
+      `<div class="badge-detail-stats">
+         <div class="badge-detail-stat">
+           <div class="badge-detail-stat-val">${cumulative}</div>
+           <div class="badge-detail-stat-label">歷史累計收藏</div>
+         </div>
+         <div class="badge-detail-stat">
+           <div class="badge-detail-stat-val">${live}</div>
+           <div class="badge-detail-stat-label">目前即時收藏</div>
+         </div>
+       </div>
+       <p class="badge-detail-note">徽章看的是「歷史累計」，只會往上加${cumulative > live ? "，可能有人後來取消收藏，所以即時數字比較小" : ""}</p>`
     );
     return;
   }
@@ -253,7 +280,8 @@ async function handleBadgeClick(key, { member, stats, badges }) {
       const all = await listAllChallenges();
       const completed = all.filter((c) => (c.completedBy || []).includes(member.uid));
       const bodyHtml = completed.length
-        ? completed.map((c) => `<div class="challenge-detail-row">${c.title}</div>`).join("")
+        ? `<div class="badge-detail-stats"><div class="badge-detail-stat"><div class="badge-detail-stat-val">${completed.length}</div><div class="badge-detail-stat-label">已完成挑戰數</div></div></div>` +
+          completed.map((c) => `<div class="challenge-detail-row">${ICON_TROPHY_SM}${c.title}</div>`).join("")
         : `<p class="form-hint">還沒有完成過挑戰。</p>`;
       document.querySelectorAll(".picker-overlay").forEach((o) => o.remove());
       showInfoModal("已完成的挑戰", bodyHtml);
