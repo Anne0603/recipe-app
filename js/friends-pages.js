@@ -138,7 +138,7 @@ export async function renderMemberProfilePage(container, params) {
     </div>
   `;
 
-  document.getElementById("profile-back").addEventListener("click", () => navigate("/friends"));
+  document.getElementById("profile-back").addEventListener("click", () => window.history.back());
 
   document.querySelectorAll(".badge-card-clickable").forEach((card) => {
     card.addEventListener("click", () => handleBadgeClick(card.dataset.key, { member, stats, badges }));
@@ -287,7 +287,7 @@ export async function renderMemberRecipesPage(container, params) {
     <div id="member-recipes-grid"><div class="empty-state">載入中…</div></div>
   `;
 
-  document.getElementById("member-recipes-back").addEventListener("click", () => navigate(`/friends/${params.uid}`));
+  document.getElementById("member-recipes-back").addEventListener("click", () => window.history.back());
 
   let all = [];
   try {

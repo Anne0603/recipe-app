@@ -18,6 +18,7 @@
 
 import { doc, getDoc, setDoc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getDbInstance } from "./firebase-init.js";
+import { createNotification } from "./notifications.js";
 
 export const BADGE_CATEGORIES = [
   { key: "cooking", label: "料理", icon: '<svg class="icon" viewBox="0 0 24 24"><path d="M4 12h16M5 12a7 7 0 0 0 14 0M3 12l1-5h16l1 5"/></svg>' },
@@ -63,11 +64,36 @@ export async function getUserBadgeSummary(uid) {
   }));
 }
 
-/** 累計數 +1（Firestore 原子操作，不用自己讀了再算再寫，避免併發問題） */
+/**
+ * 累計數 +1。改成「讀了再寫」而不是純原子 increment()，是為了能比較
+ * 加之前/加之後的等級，等級真的往上升時才發一則升級通知（同一使用者
+ * 連續動作間隔通常夠長，10 人小規模不太會撞併發，可以接受這個取捨）。
+ */
 export async function incrementBadgeCounter(uid, category, amount = 1) {
   const db = getDbInstance();
   const ref = doc(db, "users", uid);
-  await setDoc(ref, { badgeCounts: { [category]: increment(amount) } }, { merge: true });
+  const snap = await getDoc(ref);
+  const before = snap.exists() ? snap.data().badgeCounts?.[category] || 0 : 0;
+  const after = before + amount;
+
+  await setDoc(ref, { badgeCounts: { [category]: after } }, { merge: true });
+
+  const beforeLevel = computeBadgeLevel(category, before);
+  const afterLevel = computeBadgeLevel(category, after);
+  if (afterLevel.tier > beforeLevel.tier || (afterLevel.tier === beforeLevel.tier && afterLevel.star > beforeLevel.star)) {
+    const label = BADGE_CATEGORIES.find((c) => c.key === category)?.label || category;
+    try {
+      await createNotification(
+        uid,
+        "badge",
+        "徽章升級了！",
+        `「${label}」徽章升到 Lv.${afterLevel.tier} ${"★".repeat(afterLevel.star)}${"☆".repeat(3 - afterLevel.star)} 了`,
+        "/friends/" + uid
+      );
+    } catch (err) {
+      console.error("建立徽章升級通知失敗", err);
+    }
+  }
 }
 
 function todayDateStr() {

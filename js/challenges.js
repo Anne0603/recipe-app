@@ -39,6 +39,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getDbInstance } from "./firebase-init.js";
 import { incrementBadgeCounter } from "./badges.js";
+import { createNotificationForAllMembers, createNotificationForAdmins, createNotification } from "./notifications.js";
 
 const COLLECTION = "challenges";
 
@@ -67,6 +68,13 @@ export async function createChallenge(title, description, deadline, verification
     pendingReview: [],
     createdAt: serverTimestamp(),
   });
+
+  try {
+    await createNotificationForAllMembers("challenge", "有新挑戰囉", `「${title}」開始了，期限至 ${deadline}`, "/challenges", createdBy);
+  } catch (err) {
+    console.error("建立新挑戰通知失敗", err);
+  }
+
   return ref.id;
 }
 
@@ -175,6 +183,11 @@ export async function markChallengeComplete(challengeId, uid) {
     const pendingReview = data.pendingReview || [];
     if (pendingReview.includes(uid)) return "already_pending";
     await updateDoc(ref, { pendingReview: [...pendingReview, uid] });
+    try {
+      await createNotificationForAdmins("challenge_review", "有挑戰待審核", `「${data.title}」有新的完成提交，等你審核`, "/challenge-admin");
+    } catch (err) {
+      console.error("建立待審核通知失敗", err);
+    }
     return "pending";
   }
 
@@ -197,6 +210,12 @@ export async function approveChallengeCompletion(challengeId, uid) {
 
   await updateDoc(ref, { pendingReview, completedBy });
   await incrementBadgeCounter(uid, "challenge");
+
+  try {
+    await createNotification(uid, "challenge_result", "挑戰核准了！", `「${data.title}」審核通過，已計入你的挑戰徽章`, "/challenges");
+  } catch (err) {
+    console.error("建立核准通知失敗", err);
+  }
 }
 
 /** 管理員拒絕一筆待審核的完成提交，不計徽章 */
@@ -206,6 +225,13 @@ export async function rejectChallengeCompletion(challengeId, uid) {
   const snap = await getDoc(ref);
   if (!snap.exists()) throw new Error("找不到這個挑戰");
 
-  const pendingReview = (snap.data().pendingReview || []).filter((id) => id !== uid);
+  const data = snap.data();
+  const pendingReview = (data.pendingReview || []).filter((id) => id !== uid);
   await updateDoc(ref, { pendingReview });
+
+  try {
+    await createNotification(uid, "challenge_result", "挑戰沒有通過審核", `「${data.title}」這次提交沒有通過，期限內可以再試一次`, "/challenges");
+  } catch (err) {
+    console.error("建立拒絕通知失敗", err);
+  }
 }

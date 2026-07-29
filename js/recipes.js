@@ -32,6 +32,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getDbInstance } from "./firebase-init.js";
 import { incrementBadgeCounter } from "./badges.js";
+import { createNotification } from "./notifications.js";
 
 const COLLECTION = "recipes";
 
@@ -225,6 +226,14 @@ export async function toggleLike(recipeId, uid) {
       likerUid: uid,
       createdAt: serverTimestamp(),
     });
+  }
+
+  if (!alreadyLiked && recipe.ownerId !== uid) {
+    try {
+      await createNotification(recipe.ownerId, "like", "食譜被收藏了", `有人收藏了你的食譜「${recipe.name}」`, `/recipes/${recipeId}`);
+    } catch (err) {
+      console.error("建立按讚通知失敗", err);
+    }
   }
 
   if (isFirstTimeLike) {

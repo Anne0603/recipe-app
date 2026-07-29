@@ -22,6 +22,7 @@ import { renderDiaryPage } from "./diary-pages.js";
 import { cleanupExpiredEntries } from "./diary.js";
 import { catchUpWeeklySummaries } from "./weekly-summary.js";
 import { getHomeWeatherDisplay } from "./weather.js";
+import { listMyNotifications, countUnread, markNotificationRead, markAllNotificationsRead } from "./notifications.js";
 import { requestAutoLocation, setManualCity, getWeatherMode } from "./location.js";
 import { renderFriendsListPage, renderMemberProfilePage, renderMemberRecipesPage } from "./friends-pages.js";
 import { getCurrentChallenge, markChallengeComplete, createChallenge, endChallenge, autoExpireChallenges, listActiveChallenges, listEndedChallenges, approveChallengeCompletion, rejectChallengeCompletion, listChallengesWithPendingReview, autoResolveStalePendingReviews } from "./challenges.js";
@@ -133,9 +134,15 @@ async function renderHomePage(container) {
     <div class="home-header">
       <div class="home-header-top">
         <div class="hello">${greeting}，<span>${name}</span></div>
-        <div class="streak-badge">
-          <svg class="icon" viewBox="0 0 24 24"><path d="M12 2c1 3-2 4-2 7a3 3 0 0 0 6 0c0-1-.5-2-1-2.5.8 1.5 2 2.8 2 5.5a6 6 0 1 1-12 0c0-4 2-5 3-7 .3 1 1 2 2 2-.5-2-1-3.5 2-5Z"/></svg>
-          連續登入 ${member?.loginStreakCurrent || 1} 天
+        <div class="home-header-right">
+          <button id="notif-bell-btn" class="notif-bell-btn" aria-label="通知">
+            ${ICON_BELL}
+            <span id="notif-unread-badge" class="notif-unread-badge hidden"></span>
+          </button>
+          <div class="streak-badge">
+            <svg class="icon" viewBox="0 0 24 24"><path d="M12 2c1 3-2 4-2 7a3 3 0 0 0 6 0c0-1-.5-2-1-2.5.8 1.5 2 2.8 2 5.5a6 6 0 1 1-12 0c0-4 2-5 3-7 .3 1 1 2 2 2-.5-2-1-3.5 2-5Z"/></svg>
+            連續登入 ${member?.loginStreakCurrent || 1} 天
+          </div>
         </div>
       </div>
       <div id="home-weather"><div class="weather-line"><span class="weather-date">${dateLabel}</span></div></div>
@@ -185,6 +192,7 @@ async function renderHomePage(container) {
   loadHomeRecipeSections();
   loadHomeChallenge();
   loadHomeWeather();
+  loadNotifBell();
 
   document.getElementById("lottery-btn").addEventListener("click", () => {
     openLotteryFlow();
@@ -192,6 +200,118 @@ async function renderHomePage(container) {
 }
 
 const HOME_NO_PHOTO_ICON = '<svg class="icon" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M3 16l5-4 3 3 4-4 5 5"/></svg>';
+const ICON_BELL = '<svg class="icon" viewBox="0 0 24 24"><path d="M6 10a6 6 0 0 1 12 0c0 4 1.5 5.5 2 6H4c.5-.5 2-2 2-6Z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>';
+
+async function loadNotifBell() {
+  const btn = document.getElementById("notif-bell-btn");
+  if (!btn) return;
+  const member = getCurrentMember();
+  if (!member) return;
+
+  try {
+    const count = await countUnread(member.uid);
+    const badgeEl = document.getElementById("notif-unread-badge");
+    if (badgeEl) {
+      if (count > 0) {
+        badgeEl.textContent = count > 9 ? "9+" : String(count);
+        badgeEl.classList.remove("hidden");
+      } else {
+        badgeEl.classList.add("hidden");
+      }
+    }
+  } catch (err) {
+    console.error("讀取通知數量失敗", err);
+  }
+
+  btn.addEventListener("click", openNotifPanel);
+}
+
+function relativeTimeLabel(ts) {
+  const millis = ts && typeof ts.toMillis === "function" ? ts.toMillis() : ts?.seconds ? ts.seconds * 1000 : 0;
+  if (!millis) return "";
+  const diffMin = Math.floor((Date.now() - millis) / 60000);
+  if (diffMin < 1) return "剛剛";
+  if (diffMin < 60) return `${diffMin} 分鐘前`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr} 小時前`;
+  const diffDay = Math.floor(diffHr / 24);
+  return `${diffDay} 天前`;
+}
+
+async function openNotifPanel() {
+  const member = getCurrentMember();
+  const overlay = document.createElement("div");
+  overlay.className = "picker-overlay";
+  overlay.innerHTML = `
+    <div class="picker-box notif-panel-box">
+      <button type="button" class="dialog-close picker-close" aria-label="關閉">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+      <div class="sheet-title">通知</div>
+      <div id="notif-panel-list"><p class="form-hint">載入中…</p></div>
+      <button type="button" id="notif-mark-all-btn" class="btn btn-ghost" style="width:100%;margin-top:10px">全部標為已讀</button>
+    </div>
+  `;
+  overlay.querySelector(".picker-close").addEventListener("click", () => {
+    overlay.remove();
+    loadNotifBell();
+  });
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) {
+      overlay.remove();
+      loadNotifBell();
+    }
+  });
+  document.body.appendChild(overlay);
+
+  try {
+    const list = await listMyNotifications(member.uid);
+    const listEl = document.getElementById("notif-panel-list");
+    if (list.length === 0) {
+      listEl.innerHTML = `<p class="form-hint">還沒有通知。</p>`;
+      return;
+    }
+    listEl.innerHTML = list
+      .slice(0, 30)
+      .map(
+        (n) => `
+        <button type="button" class="notif-row ${n.read ? "" : "unread"}" data-id="${n.id}" data-path="${n.relatedPath || ""}">
+          <div class="notif-row-title">${n.title}</div>
+          <div class="notif-row-body">${n.body || ""}</div>
+          <div class="notif-row-time">${relativeTimeLabel(n.createdAt)}</div>
+        </button>`
+      )
+      .join("");
+
+    listEl.querySelectorAll(".notif-row").forEach((row) => {
+      row.addEventListener("click", async () => {
+        try {
+          await markNotificationRead(row.dataset.id);
+        } catch (err) {
+          console.error(err);
+        }
+        overlay.remove();
+        if (row.dataset.path) navigate(row.dataset.path);
+        loadNotifBell();
+      });
+    });
+  } catch (err) {
+    console.error(err);
+    document.getElementById("notif-panel-list").innerHTML = `<p class="form-hint">載入失敗，請稍後再試。</p>`;
+  }
+
+  document.getElementById("notif-mark-all-btn").addEventListener("click", async () => {
+    try {
+      await markAllNotificationsRead(member.uid);
+      showToast("已全部標為已讀");
+      overlay.remove();
+      loadNotifBell();
+    } catch (err) {
+      console.error(err);
+      showToast("操作失敗，請再試一次");
+    }
+  });
+}
 const HOME_HEART_ICON = '<svg class="icon" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 1 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78Z"/></svg>';
 
 const WEATHER_ICONS = {

@@ -28,11 +28,12 @@ import {
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getDbInstance } from "./firebase-init.js";
-import { adjustCommentCount } from "./recipes.js";
+import { adjustCommentCount, getRecipe } from "./recipes.js";
+import { createNotification } from "./notifications.js";
 
 const COLLECTION = "comments";
 
-/** 新增一則留言，並讓對應食譜的留言數＋1 */
+/** 新增一則留言，並讓對應食譜的留言數＋1，順便通知食譜擁有者（自己留言給自己的不用通知） */
 export async function createComment(recipeId, authorId, content) {
   const db = getDbInstance();
   const ref = await addDoc(collection(db, COLLECTION), {
@@ -43,6 +44,22 @@ export async function createComment(recipeId, authorId, content) {
     createdAt: serverTimestamp(),
   });
   await adjustCommentCount(recipeId, 1);
+
+  try {
+    const recipe = await getRecipe(recipeId);
+    if (recipe && recipe.ownerId !== authorId) {
+      await createNotification(
+        recipe.ownerId,
+        "comment",
+        "有人留言了",
+        `你的食譜「${recipe.name}」收到新留言`,
+        `/recipes/${recipeId}`
+      );
+    }
+  } catch (err) {
+    console.error("建立留言通知失敗", err);
+  }
+
   return ref.id;
 }
 

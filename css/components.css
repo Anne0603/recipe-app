@@ -119,6 +119,32 @@
 
 .streak-badge .icon { width: 14px; height: 14px; }
 
+.home-header-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+.notif-bell-btn {
+  position: relative; width: 32px; height: 32px; border-radius: 50%;
+  background: var(--color-surface); border: 1px solid var(--color-border);
+  display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;
+}
+.notif-bell-btn .icon { width: 16px; height: 16px; color: var(--color-text); }
+.notif-unread-badge {
+  position: absolute; top: -3px; right: -3px; min-width: 15px; height: 15px; padding: 0 3px;
+  border-radius: 999px; background: var(--color-berry); color: #fff;
+  font-size: 9px; font-weight: 900; display: flex; align-items: center; justify-content: center;
+}
+
+.notif-panel-box { max-height: 70vh; display: flex; flex-direction: column; }
+#notif-panel-list { overflow-y: auto; flex: 1; }
+.notif-row {
+  display: block; width: 100%; text-align: left; background: none; border: none; border-bottom: 1px solid var(--color-border);
+  padding: 11px 4px; font-family: inherit; cursor: pointer;
+}
+.notif-row:last-child { border-bottom: none; }
+.notif-row.unread { background: var(--color-primary-bg); border-radius: 10px; padding: 11px 10px; }
+.notif-row-title { font-size: 13px; font-weight: 700; }
+.notif-row-body { font-size: 12px; color: var(--color-text-muted); margin-top: 2px; }
+.notif-row-time { font-size: 10.5px; color: var(--color-text-muted); margin-top: 4px; }
+
 .weather-line {
   display: flex;
   align-items: center;
