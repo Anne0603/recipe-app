@@ -99,9 +99,11 @@ export async function renderMemberProfilePage(container, params) {
 
     <div class="friend-profile-head">
       ${avatarHtml(member, "lg")}
-      <div class="friend-profile-name">${member.displayName || "朋友"}</div>
-      ${member.bio ? `<div class="friend-profile-bio">${member.bio}</div>` : ""}
-      <div class="friend-profile-joined">${formatJoinedDate(member.joinedAt)}</div>
+      <div class="friend-profile-head-text">
+        <div class="friend-profile-name">${member.displayName || "朋友"}</div>
+        ${member.bio ? `<div class="friend-profile-bio">${member.bio}</div>` : ""}
+        <div class="friend-profile-joined">${formatJoinedDate(member.joinedAt)}</div>
+      </div>
     </div>
 
     <div class="friend-stats-row">

@@ -544,7 +544,7 @@
 .settings-profile-name { font-family: var(--font-display); font-weight: 700; font-size: 15px; }
 .settings-profile-role { font-size: 12px; color: var(--color-text-muted); margin-top: 2px; }
 .settings-profile-info { flex: 1; min-width: 0; }
-.settings-profile-bio { font-size: 12px; color: var(--color-primary); margin-top: 4px; line-height: 1.4; }
+.settings-profile-bio { font-size: 12px; color: var(--color-primary); margin-top: 4px; line-height: 1.4; white-space: pre-line; }
 .settings-profile-edit-btn {
   width: 32px; height: 32px; border-radius: 50%; background: var(--color-bg); border: 1px solid var(--color-border);
   color: var(--color-text-muted); display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;
@@ -611,7 +611,8 @@
   background: var(--color-butter-bg); border-radius: 999px; padding: 2px 8px; margin-left: 6px; vertical-align: middle;
 }
 
-.challenge-pending-row { display: flex; align-items: center; justify-content: space-between; padding: 9px 0; border-top: 1px solid var(--color-border); font-size: 13px; font-weight: 700; }
+.challenge-pending-row { display: flex; align-items: center; justify-content: space-between; padding: 9px 0; border-top: 1px solid var(--color-border); font-size: 13px; font-weight: 700; gap: 10px; }
+.challenge-pending-activity { font-size: 10.5px; color: var(--color-text-muted); font-weight: 400; margin-top: 2px; }
 .challenge-pending-actions { display: flex; gap: 6px; }
 .challenge-approve-btn, .challenge-reject-btn {
   border: none; border-radius: 999px; padding: 6px 12px; font-size: 11.5px; font-weight: 700; font-family: inherit; cursor: pointer;
@@ -704,7 +705,18 @@
 .friend-avatar { border-radius: 50%; object-fit: cover; flex-shrink: 0; display: block; }
 .friend-avatar-fallback { background: var(--color-berry-bg); color: var(--color-berry); display: flex; align-items: center; justify-content: center; font-weight: 700; }
 .friend-avatar-md { width: 46px; height: 46px; font-size: 17px; }
-.friend-avatar-lg { width: 76px; height: 76px; font-size: 26px; margin: 0 auto; }
+.friend-avatar-lg { width: 68px; height: 68px; font-size: 24px; margin: 0; flex-shrink: 0; }
+
+.friend-profile-head {
+  display: flex; align-items: center; gap: 16px;
+  margin: 16px 16px 0; padding: 18px 18px;
+  background: linear-gradient(135deg, var(--color-primary-bg), var(--color-surface));
+  border-radius: var(--radius-lg); border: 1px solid var(--color-border);
+}
+.friend-profile-head-text { min-width: 0; flex: 1; }
+.friend-profile-name { font-family: var(--font-display); font-weight: 900; font-size: 17px; }
+.friend-profile-bio { font-size: 12.5px; color: var(--color-primary); margin-top: 4px; font-weight: 700; line-height: 1.5; white-space: pre-line; }
+.friend-profile-joined { font-size: 11px; color: var(--color-text-muted); margin-top: 4px; }
 
 .friend-list { padding: 0 16px; display: flex; flex-direction: column; gap: 10px; }
 .friend-row {
@@ -714,13 +726,8 @@
 }
 .friend-row-text { flex: 1; min-width: 0; }
 .friend-row-name { font-size: 14px; font-weight: 700; }
-.friend-row-sub { font-size: 11.5px; color: var(--color-text-muted); margin-top: 2px; }
+.friend-row-sub { font-size: 11.5px; color: var(--color-text-muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .friend-row .icon { width: 16px; height: 16px; color: var(--color-text-muted); flex-shrink: 0; }
-
-.friend-profile-head { text-align: center; padding: 20px 16px 6px; }
-.friend-profile-name { font-family: var(--font-display); font-weight: 900; font-size: 18px; margin-top: 10px; }
-.friend-profile-bio { font-size: 13px; color: var(--color-primary); margin-top: 6px; font-weight: 700; }
-.friend-profile-joined { font-size: 12px; color: var(--color-text-muted); margin-top: 3px; }
 
 .friend-stats-row { display: flex; gap: 10px; padding: 16px; }
 .friend-stat-pill { flex: 1; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 14px; padding: 12px; display: flex; flex-direction: column; align-items: center; text-align: center; }

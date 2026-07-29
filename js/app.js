@@ -16,7 +16,7 @@ import { signInWithGoogle, signOutUser, resolveMember, watchAuthState, getCurren
 import { getAppSettings, saveAppSettings, isAppSettingsComplete } from "./app-settings.js";
 import { uploadRecipeImage } from "./recipe-images.js";
 import { renderRecipeListPage, renderRecipeDetailPage, renderRecipeFormPage, renderSearchPage } from "./recipe-pages.js";
-import { getTopPublicRecipes, getRecentPublicRecipes } from "./recipes.js";
+import { getTopPublicRecipes, getRecentPublicRecipes, listPublicRecipes } from "./recipes.js";
 import { openLotteryFlow } from "./lottery.js";
 import { renderDiaryPage } from "./diary-pages.js";
 import { cleanupExpiredEntries } from "./diary.js";
@@ -879,18 +879,27 @@ function challengeAdminCardHtml(c, { ended }) {
 async function pendingReviewCardHtml(c) {
   const uids = c.pendingReview || [];
   if (uids.length === 0) return "";
-  const members = await Promise.all(uids.map((uid) => getMemberById(uid)));
+  const [members, allPublicRecipes] = await Promise.all([
+    Promise.all(uids.map((uid) => getMemberById(uid))),
+    listPublicRecipes({ sort: "recent" }),
+  ]);
+
   const rows = members
-    .map(
-      (m, i) => `
+    .map((m, i) => {
+      const latestRecipe = allPublicRecipes.find((r) => r.ownerId === uids[i]);
+      const activityLine = `登入 ${m?.loginStreakCurrent || 0} 天・${latestRecipe ? `最近發布：${latestRecipe.name}` : "還沒發布過公開食譜"}`;
+      return `
       <div class="challenge-pending-row">
-        <span>${m?.displayName || "朋友"}</span>
+        <div>
+          <span>${m?.displayName || "朋友"}</span>
+          <div class="challenge-pending-activity">${activityLine}</div>
+        </div>
         <div class="challenge-pending-actions">
           <button type="button" class="challenge-approve-btn" data-cid="${c.id}" data-uid="${uids[i]}" data-name="${m?.displayName || "朋友"}">核准</button>
           <button type="button" class="challenge-reject-btn" data-cid="${c.id}" data-uid="${uids[i]}" data-name="${m?.displayName || "朋友"}">拒絕</button>
         </div>
-      </div>`
-    )
+      </div>`;
+    })
     .join("");
   return `
     <div class="challenge-admin-item">
@@ -996,8 +1005,8 @@ function openEditProfileModal(member, onSaved) {
         <input type="text" id="edit-profile-name" maxlength="10" value="${member?.displayName || ""}">
       </div>
       <div class="field" style="margin-bottom:0">
-        <label for="edit-profile-bio">一句話簡介（可空，別人到你主頁會看到）</label>
-        <input type="text" id="edit-profile-bio" maxlength="30" placeholder="例如：無辣不歡" value="${member?.bio || ""}">
+        <label for="edit-profile-bio">一句話簡介（可空，最多 60 個字，別人到你主頁會看到）</label>
+        <textarea id="edit-profile-bio" maxlength="60" rows="3" placeholder="例如：無辣不歡，最近迷上麻辣鍋">${member?.bio || ""}</textarea>
       </div>
       <button type="button" id="edit-profile-save" class="sheet-confirm" style="margin-top:14px">儲存</button>
     </div>
