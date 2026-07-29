@@ -84,7 +84,7 @@ export const CRITERION_TYPES = [
  * 這種情況下 verificationMode 一律當作 admin_review，畫面上不會再讓使用者
  * 自己標記完成。
  */
-export async function createChallenge(title, description, deadline, verificationMode, createdBy, criterionType = "manual", criterionTarget = null, criterionStyle = null) {
+export async function createChallenge(title, description, deadline, verificationMode, createdBy, criterionType = "manual", criterionTarget = null, criterionStyle = null, repeatWeekly = false) {
   const db = getDbInstance();
   const isAuto = criterionType && criterionType !== "manual";
   const ref = await addDoc(collection(db, COLLECTION), {
@@ -95,6 +95,7 @@ export async function createChallenge(title, description, deadline, verification
     criterionType: criterionType || "manual",
     criterionTarget: isAuto ? Number(criterionTarget) || 1 : null,
     criterionStyle: criterionType === "recipeStyleCount" ? criterionStyle : null,
+    repeatWeekly: !!repeatWeekly,
     createdBy,
     active: true,
     completedBy: [],
@@ -183,16 +184,43 @@ export async function endChallenge(challengeId) {
   await updateDoc(doc(db, COLLECTION, challengeId), { active: false });
 }
 
+/** 管理員編輯已發布的挑戰（標題、說明、期限、判斷方式相關欄位、是否每週重複） */
+export async function editChallenge(challengeId, updates) {
+  const db = getDbInstance();
+  const isAuto = updates.criterionType && updates.criterionType !== "manual";
+  await updateDoc(doc(db, COLLECTION, challengeId), {
+    title: updates.title,
+    description: updates.description || "",
+    deadline: updates.deadline,
+    verificationMode: isAuto ? "admin_review" : updates.verificationMode === "admin_review" ? "admin_review" : "self",
+    criterionType: updates.criterionType || "manual",
+    criterionTarget: isAuto ? Number(updates.criterionTarget) || 1 : null,
+    criterionStyle: updates.criterionType === "recipeStyleCount" ? updates.criterionStyle : null,
+    repeatWeekly: !!updates.repeatWeekly,
+  });
+}
+
 /**
  * 有人開 APP、登入成功時呼叫：檢查有沒有「還是 active 但 deadline 已過」的挑戰，
  * 過期的自動關掉，不用管理員手動按。
+ * 標了「每週自動重複」的挑戰，到期關掉的同時會自動開一個一樣設定、期限往後
+ * 推 7 天的新挑戰（手動提早結束的不會觸發重複，代表管理員是故意要停掉它）。
  */
 export async function autoExpireChallenges() {
   const active = await listActiveChallenges();
   const today = todayStr();
   const expired = active.filter((c) => c.deadline && c.deadline < today);
+
   for (const c of expired) {
     await endChallenge(c.id);
+    if (c.repeatWeekly) {
+      const nextDeadline = addDaysToDateStr(todayStr(), 7);
+      try {
+        await createChallenge(c.title, c.description, nextDeadline, c.verificationMode, c.createdBy, c.criterionType, c.criterionTarget, c.criterionStyle, true);
+      } catch (err) {
+        console.error("每週自動重複發布挑戰失敗", err);
+      }
+    }
   }
   return expired.length;
 }

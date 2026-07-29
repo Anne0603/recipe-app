@@ -16,7 +16,7 @@
    - challenge（挑戰）：每完成一個挑戰 +1
    ========================================================== */
 
-import { doc, getDoc, setDoc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { doc, getDoc, setDoc, updateDoc, increment, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getDbInstance } from "./firebase-init.js";
 import { createNotification } from "./notifications.js";
 
@@ -62,6 +62,26 @@ export async function getUserBadgeSummary(uid) {
     count: counts[cat.key] || 0,
     ...computeBadgeLevel(cat.key, counts[cat.key] || 0),
   }));
+}
+
+/** 排行榜：某一類徽章累計數排名前面的成員（只看啟用中的帳號） */
+export async function getLeaderboard(category, topN = 10) {
+  const db = getDbInstance();
+  const q = query(collection(db, "users"), where("status", "==", "active"));
+  const snap = await getDocs(q);
+  const members = snap.docs.map((d) => ({ uid: d.id, ...d.data() }));
+
+  return members
+    .map((m) => ({
+      uid: m.uid,
+      displayName: m.displayName,
+      photoURL: m.photoURL,
+      count: m.badgeCounts?.[category] || 0,
+      ...computeBadgeLevel(category, m.badgeCounts?.[category] || 0),
+    }))
+    .filter((m) => m.count > 0)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, topN);
 }
 
 /**

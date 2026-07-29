@@ -3,7 +3,7 @@
    ========================================================== */
 
 import { listMembersForFriendsPage, getMemberStats } from "./friends.js";
-import { getUserBadgeSummary } from "./badges.js";
+import { getUserBadgeSummary, BADGE_CATEGORIES, getLeaderboard } from "./badges.js";
 import { getMemberById } from "./auth.js";
 import { listPublicRecipes } from "./recipes.js";
 import { listAllChallenges } from "./challenges.js";
@@ -42,7 +42,10 @@ function formatJoinedDate(ts) {
    ========================================================== */
 export async function renderFriendsListPage(container) {
   container.innerHTML = `
-    <div class="page-head"><h1>朋友</h1></div>
+    <div class="page-head">
+      <h1>朋友</h1>
+      <a href="#/leaderboard" class="more">${ICON_TROPHY_SM}排行榜</a>
+    </div>
     <div id="friends-list-body"><div class="loading-screen"><p>載入中…</p></div></div>
   `;
 
@@ -350,4 +353,63 @@ export async function renderMemberRecipesPage(container, params) {
 
   render("");
   document.getElementById("member-recipes-search").addEventListener("input", (e) => render(e.target.value));
+}
+
+/* ==========================================================
+   排行榜（#/leaderboard）
+   ========================================================== */
+export async function renderLeaderboardPage(container) {
+  container.innerHTML = `
+    <div class="page-head">
+      <button id="leaderboard-back" class="back-btn"><svg class="icon" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+      <h1>排行榜</h1>
+    </div>
+    <div class="segment segment-sm" id="leaderboard-tabs" style="margin:0 16px 14px; flex-wrap:wrap">
+      ${BADGE_CATEGORIES.map((c, i) => `<button type="button" class="${i === 0 ? "active" : ""}" data-key="${c.key}">${c.label}</button>`).join("")}
+    </div>
+    <div id="leaderboard-list"><div class="empty-state">載入中…</div></div>
+  `;
+  document.getElementById("leaderboard-back").addEventListener("click", () => window.history.back());
+
+  async function loadTab(key) {
+    const listEl = document.getElementById("leaderboard-list");
+    listEl.innerHTML = `<div class="empty-state">載入中…</div>`;
+    try {
+      const rows = await getLeaderboard(key);
+      if (rows.length === 0) {
+        listEl.innerHTML = `<div class="empty-state">還沒有人在這個項目達成任何等級。</div>`;
+        return;
+      }
+      listEl.innerHTML = `
+        <div class="leaderboard-list">
+          ${rows
+            .map(
+              (r, i) => `
+            <a href="#/friends/${r.uid}" class="leaderboard-row">
+              <div class="leaderboard-rank">${i + 1}</div>
+              ${avatarHtml(r, "leaderboard-avatar")}
+              <div class="leaderboard-info">
+                <div class="leaderboard-name">${r.displayName || "朋友"}</div>
+                <div class="leaderboard-tier">Lv.${r.tier} ${"★".repeat(r.star)}${"☆".repeat(3 - r.star)}</div>
+              </div>
+              <div class="leaderboard-count">${r.count}</div>
+            </a>`
+            )
+            .join("")}
+        </div>
+      `;
+    } catch (err) {
+      console.error(err);
+      listEl.innerHTML = `<div class="empty-state">載入失敗，請稍後再試。</div>`;
+    }
+  }
+
+  document.querySelectorAll("#leaderboard-tabs button").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#leaderboard-tabs button").forEach((b) => b.classList.toggle("active", b === btn));
+      loadTab(btn.dataset.key);
+    });
+  });
+
+  loadTab(BADGE_CATEGORIES[0].key);
 }

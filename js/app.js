@@ -24,8 +24,8 @@ import { catchUpWeeklySummaries } from "./weekly-summary.js";
 import { getHomeWeatherDisplay } from "./weather.js";
 import { listMyNotifications, countUnread, markNotificationRead, markAllNotificationsRead } from "./notifications.js";
 import { requestAutoLocation, setManualCity, getWeatherMode } from "./location.js";
-import { renderFriendsListPage, renderMemberProfilePage, renderMemberRecipesPage } from "./friends-pages.js";
-import { getCurrentChallenge, markChallengeComplete, createChallenge, endChallenge, autoExpireChallenges, listActiveChallenges, listEndedChallenges, approveChallengeCompletion, rejectChallengeCompletion, listChallengesWithPendingReview, autoResolveStalePendingReviews, checkAutoChallenges, computeChallengeProgress, CRITERION_TYPES } from "./challenges.js";
+import { renderFriendsListPage, renderMemberProfilePage, renderMemberRecipesPage, renderLeaderboardPage } from "./friends-pages.js";
+import { getCurrentChallenge, markChallengeComplete, createChallenge, editChallenge, endChallenge, autoExpireChallenges, listActiveChallenges, listEndedChallenges, approveChallengeCompletion, rejectChallengeCompletion, listChallengesWithPendingReview, autoResolveStalePendingReviews, checkAutoChallenges, computeChallengeProgress, CRITERION_TYPES } from "./challenges.js";
 import { registerRoute, setBeforeEach, setOnRouteChange, startRouter, navigate } from "./router.js";
 import { showToast, showConfirm, openPickerSheet } from "./utils.js";
 
@@ -617,16 +617,54 @@ async function renderAllChallengesPage(container) {
       <button id="all-challenges-back" class="back-btn"><svg class="icon" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
       <h1>全部挑戰</h1>
     </div>
+    <div class="segment segment-sm" id="all-challenges-tab" style="margin:0 16px 14px">
+      <button type="button" class="active" data-tab="active">進行中</button>
+      <button type="button" data-tab="ended">已結束</button>
+    </div>
     <div id="all-challenges-list" class="challenge-admin-list"><p class="form-hint" style="padding:0 16px">載入中…</p></div>
   `;
   document.getElementById("all-challenges-back").addEventListener("click", () => navigate("/home"));
 
-  await renderAllChallengesList();
+  let currentTab = "active";
+  document.querySelectorAll("#all-challenges-tab button").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      currentTab = btn.dataset.tab;
+      document.querySelectorAll("#all-challenges-tab button").forEach((b) => b.classList.toggle("active", b === btn));
+      renderAllChallengesList(currentTab);
+    });
+  });
+
+  await renderAllChallengesList(currentTab);
 }
 
-async function renderAllChallengesList() {
+async function renderAllChallengesList(tab = "active") {
   const listEl = document.getElementById("all-challenges-list");
   if (!listEl) return;
+
+  if (tab === "ended") {
+    try {
+      const ended = await listEndedChallenges();
+      listEl.innerHTML = ended.length
+        ? ended
+            .map(
+              (c) => `
+          <div class="challenge-admin-item ended">
+            <div class="challenge-admin-item-title">${c.title}</div>
+            ${c.description ? `<div class="challenge-admin-item-desc">${c.description}</div>` : ""}
+            <div class="challenge-admin-item-meta">
+              <span>期限至 ${c.deadline}</span>
+              <span>${(c.completedBy || []).length} 人完成</span>
+            </div>
+          </div>`
+            )
+            .join("")
+        : `<p class="form-hint" style="padding:0 16px">還沒有結束過的挑戰。</p>`;
+    } catch (err) {
+      console.error(err);
+      listEl.innerHTML = `<p class="form-hint" style="padding:0 16px">載入失敗，請重新整理再試。</p>`;
+    }
+    return;
+  }
 
   try {
     const challenges = await listActiveChallenges();
@@ -795,7 +833,7 @@ async function renderChallengeAdminPage(container) {
     </div>
 
     <div class="settings-group">
-      <div class="settings-group-title">發布新挑戰</div>
+      <div class="settings-group-title" id="challenge-form-title">發布新挑戰</div>
       <div class="settings-card">
         <div class="field">
           <label for="challenge-title-input">標題</label>
@@ -840,7 +878,13 @@ async function renderChallengeAdminPage(container) {
           <div class="form-hint" style="margin-top:6px" id="challenge-mode-hint">簡單、好判斷的挑戰選「自行標記」；需要看照片或證明的挑戰選「需要審核」，成員提交後你要在下面核准才算數。</div>
         </div>
 
+        <label class="challenge-repeat-check">
+          <input type="checkbox" id="challenge-repeat-checkbox">
+          <span>每週自動重複發布（到期結束時自動開一個一樣設定、期限往後推 7 天的新挑戰）</span>
+        </label>
+
         <button type="button" id="challenge-create-btn" class="btn btn-primary" style="margin-top:12px;width:100%">發布新挑戰</button>
+        <button type="button" id="challenge-cancel-edit-btn" class="btn btn-ghost hidden" style="margin-top:8px;width:100%">取消編輯</button>
       </div>
     </div>
 
@@ -865,6 +909,56 @@ async function renderChallengeAdminPage(container) {
   let selectedMode = "self";
   let selectedCriterion = "manual";
   let selectedStyle = null;
+  let editingId = null;
+
+  function applyCriterionUI(value) {
+    const meta = CRITERION_TYPES.find((c) => c.value === value);
+    document.getElementById("challenge-criterion-label").textContent = meta?.label || "手動（自行標記或審核）";
+    const isAuto = value !== "manual";
+    document.getElementById("challenge-target-field").classList.toggle("hidden", !isAuto);
+    document.getElementById("challenge-style-field").classList.toggle("hidden", value !== "recipeStyleCount");
+    document.getElementById("challenge-mode-field").classList.toggle("hidden", isAuto);
+    document.getElementById("challenge-mode-hint").textContent = isAuto ? "" : "簡單、好判斷的挑戰選「自行標記」；需要看照片或證明的挑戰選「需要審核」，成員提交後你要在下面核准才算數。";
+  }
+
+  function resetForm() {
+    editingId = null;
+    selectedMode = "self";
+    selectedCriterion = "manual";
+    selectedStyle = null;
+    document.getElementById("challenge-form-title").textContent = "發布新挑戰";
+    document.getElementById("challenge-title-input").value = "";
+    document.getElementById("challenge-desc-input").value = "";
+    document.getElementById("challenge-deadline-input").value = defaultDeadline;
+    document.getElementById("challenge-target-input").value = "5";
+    document.getElementById("challenge-style-label").textContent = "請選擇風格";
+    document.getElementById("challenge-repeat-checkbox").checked = false;
+    document.querySelectorAll("#challenge-mode-toggle button").forEach((b) => b.classList.toggle("active", b.dataset.mode === "self"));
+    applyCriterionUI("manual");
+    document.getElementById("challenge-create-btn").textContent = "發布新挑戰";
+    document.getElementById("challenge-cancel-edit-btn").classList.add("hidden");
+  }
+
+  function enterEditMode(c) {
+    editingId = c.id;
+    selectedMode = c.verificationMode || "self";
+    selectedCriterion = c.criterionType || "manual";
+    selectedStyle = c.criterionStyle || null;
+    document.getElementById("challenge-form-title").textContent = "編輯挑戰";
+    document.getElementById("challenge-title-input").value = c.title || "";
+    document.getElementById("challenge-desc-input").value = c.description || "";
+    document.getElementById("challenge-deadline-input").value = c.deadline || defaultDeadline;
+    document.getElementById("challenge-target-input").value = c.criterionTarget || 5;
+    document.getElementById("challenge-style-label").textContent = c.criterionStyle || "請選擇風格";
+    document.getElementById("challenge-repeat-checkbox").checked = !!c.repeatWeekly;
+    document.querySelectorAll("#challenge-mode-toggle button").forEach((b) => b.classList.toggle("active", b.dataset.mode === selectedMode));
+    applyCriterionUI(selectedCriterion);
+    document.getElementById("challenge-create-btn").textContent = "儲存修改";
+    document.getElementById("challenge-cancel-edit-btn").classList.remove("hidden");
+    document.getElementById("challenge-form-title").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  document.getElementById("challenge-cancel-edit-btn").addEventListener("click", resetForm);
 
   document.querySelectorAll("#challenge-mode-toggle button").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -881,17 +975,7 @@ async function renderChallengeAdminPage(container) {
       multiple: false,
       onConfirm: ([value]) => {
         selectedCriterion = value;
-        const meta = CRITERION_TYPES.find((c) => c.value === value);
-        document.getElementById("challenge-criterion-label").textContent = meta?.label || "手動（自行標記或審核）";
-
-        const isAuto = value !== "manual";
-        document.getElementById("challenge-target-field").classList.toggle("hidden", !isAuto);
-        document.getElementById("challenge-style-field").classList.toggle("hidden", value !== "recipeStyleCount");
-        document.getElementById("challenge-mode-field").classList.toggle("hidden", isAuto);
-
-        if (isAuto) {
-          document.getElementById("challenge-mode-hint").textContent = "";
-        }
+        applyCriterionUI(value);
       },
     });
   });
@@ -916,6 +1000,7 @@ async function renderChallengeAdminPage(container) {
     const desc = document.getElementById("challenge-desc-input").value.trim();
     const deadline = document.getElementById("challenge-deadline-input").value;
     const target = document.getElementById("challenge-target-input").value;
+    const repeatWeekly = document.getElementById("challenge-repeat-checkbox").checked;
 
     if (!title) {
       showToast("請填挑戰標題");
@@ -935,18 +1020,31 @@ async function renderChallengeAdminPage(container) {
     }
 
     try {
-      await createChallenge(title, desc, deadline, selectedMode, getCurrentMember()?.uid, selectedCriterion, target, selectedStyle);
-      showToast("已發布新挑戰");
-      document.getElementById("challenge-title-input").value = "";
-      document.getElementById("challenge-desc-input").value = "";
+      if (editingId) {
+        await editChallenge(editingId, {
+          title,
+          description: desc,
+          deadline,
+          verificationMode: selectedMode,
+          criterionType: selectedCriterion,
+          criterionTarget: target,
+          criterionStyle: selectedStyle,
+          repeatWeekly,
+        });
+        showToast("已儲存修改");
+      } else {
+        await createChallenge(title, desc, deadline, selectedMode, getCurrentMember()?.uid, selectedCriterion, target, selectedStyle, repeatWeekly);
+        showToast("已發布新挑戰");
+      }
+      resetForm();
       loadChallengeLists();
     } catch (err) {
       console.error(err);
-      showToast("發布失敗，請再試一次");
+      showToast(editingId ? "儲存失敗，請再試一次" : "發布失敗，請再試一次");
     }
   });
 
-  loadChallengeLists();
+  loadChallengeLists(enterEditMode);
 }
 
 function challengeAdminCardHtml(c, { ended }) {
@@ -955,13 +1053,21 @@ function challengeAdminCardHtml(c, { ended }) {
       <div class="challenge-admin-item-title">
         ${c.title}
         ${c.verificationMode === "admin_review" ? '<span class="challenge-mode-tag">需審核</span>' : ""}
+        ${c.repeatWeekly ? '<span class="challenge-mode-tag">每週重複</span>' : ""}
       </div>
       ${c.description ? `<div class="challenge-admin-item-desc">${c.description}</div>` : ""}
       <div class="challenge-admin-item-meta">
         <span>${ended ? "期限至" : "還剩到"} ${c.deadline}</span>
         <span>${(c.completedBy || []).length} 人已完成</span>
       </div>
-      ${!ended ? `<button type="button" class="btn btn-ghost challenge-admin-end-btn" data-id="${c.id}" data-title="${c.title}">結束這個挑戰</button>` : ""}
+      ${
+        !ended
+          ? `<div style="display:flex;gap:8px;margin-top:10px">
+              <button type="button" class="btn btn-ghost challenge-admin-edit-btn" data-id="${c.id}" style="flex:1">編輯</button>
+              <button type="button" class="btn btn-ghost challenge-admin-end-btn" data-id="${c.id}" data-title="${c.title}" style="flex:1">結束這個挑戰</button>
+            </div>`
+          : ""
+      }
     </div>
   `;
 }
@@ -999,7 +1105,10 @@ async function pendingReviewCardHtml(c) {
   `;
 }
 
-async function loadChallengeLists() {
+let _challengeEditHandler = null;
+
+async function loadChallengeLists(onEdit) {
+  if (onEdit) _challengeEditHandler = onEdit;
   const activeEl = document.getElementById("challenge-active-list");
   const endedEl = document.getElementById("challenge-ended-list");
   const pendingEl = document.getElementById("challenge-pending-list");
@@ -1015,6 +1124,13 @@ async function loadChallengeLists() {
     endedEl.innerHTML = ended.length
       ? ended.map((c) => challengeAdminCardHtml(c, { ended: true })).join("")
       : `<p class="form-hint" style="padding:0 16px">還沒有結束過的挑戰。</p>`;
+
+    activeEl.querySelectorAll(".challenge-admin-edit-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const found = active.find((c) => c.id === btn.dataset.id);
+        if (found && _challengeEditHandler) _challengeEditHandler(found);
+      });
+    });
 
     const withPending = await listChallengesWithPendingReview();
     if (withPending.length === 0) {
@@ -1323,6 +1439,7 @@ registerRoute("/friends", renderFriendsListPage);
 registerRoute("/challenges", renderAllChallengesPage, { hideTabbar: true });
 registerRoute("/friends/:uid", renderMemberProfilePage, { hideTabbar: true });
 registerRoute("/friends/:uid/recipes", renderMemberRecipesPage, { hideTabbar: true });
+registerRoute("/leaderboard", renderLeaderboardPage, { hideTabbar: true });
 registerRoute("/settings", renderSettingsPage);
 registerRoute("/app-config", renderAppConfigPage, { hideTabbar: true });
 registerRoute("/challenge-admin", renderChallengeAdminPage, { hideTabbar: true });
