@@ -117,3 +117,17 @@ export function groupExpensesByIngredient(entries) {
     };
   });
 }
+
+/** 按月分組算平均價（例如 7月平均、8月平均），新到舊排序，給「歷史價格」明細用 */
+export function computeMonthlyAverages(entries) {
+  const groups = new Map();
+  for (const e of entries) {
+    const month = (e.date || "").slice(0, 7); // "YYYY-MM"
+    if (!month) continue;
+    if (!groups.has(month)) groups.set(month, []);
+    groups.get(month).push(e.price || 0);
+  }
+  return [...groups.entries()]
+    .map(([month, prices]) => ({ month, avg: prices.reduce((a, b) => a + b, 0) / prices.length, count: prices.length }))
+    .sort((a, b) => b.month.localeCompare(a.month));
+}

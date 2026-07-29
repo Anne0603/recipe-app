@@ -1,8 +1,8 @@
 /* ==========================================================
-   expense-pages.js — 花費記錄畫面：清單、統計、新增
+   expense-pages.js — 花費記錄畫面：清單、統計、新增（一次多項）
    ========================================================== */
 
-import { createExpense, listMyExpenses, deleteExpense, findLastEntryForName, groupExpensesByIngredient, EXPENSE_UNIT_SUGGESTIONS } from "./expenses.js";
+import { createExpense, listMyExpenses, deleteExpense, findLastEntryForName, groupExpensesByIngredient, computeMonthlyAverages, EXPENSE_UNIT_SUGGESTIONS } from "./expenses.js";
 import { getCurrentMember } from "./auth.js";
 import { showToast, showConfirm } from "./utils.js";
 
@@ -14,6 +14,10 @@ const ICON_DOWN = '<svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M6 9l6
 function todayStr() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function monthLabel(monthStr) {
+  const [y, m] = monthStr.split("-");
+  return `${y} 年 ${Number(m)} 月`;
 }
 
 export async function renderExpensesPage(container) {
@@ -98,8 +102,8 @@ export async function renderExpensesPage(container) {
       <div class="expense-stats-list">
         ${groups
           .map(
-            (g) => `
-          <div class="expense-stat-card">
+            (g, i) => `
+          <button type="button" class="expense-stat-card" data-index="${i}">
             <div class="expense-stat-head">
               <div class="expense-stat-name">${g.ingredientName}<span class="expense-stat-unit">／${g.unit || "無單位"}</span></div>
               <div class="expense-stat-trend expense-stat-trend-${g.trend}">
@@ -112,11 +116,15 @@ export async function renderExpensesPage(container) {
               <div><div class="expense-stat-val">$${g.latestPrice}</div><div class="expense-stat-label">最近一次（${g.latestDate}）</div></div>
               <div><div class="expense-stat-val">${g.count}</div><div class="expense-stat-label">記錄筆數</div></div>
             </div>
-          </div>`
+          </button>`
           )
           .join("")}
       </div>
     `;
+
+    bodyEl.querySelectorAll(".expense-stat-card").forEach((btn) => {
+      btn.addEventListener("click", () => openPriceHistoryModal(groups[Number(btn.dataset.index)]));
+    });
   }
 
   function renderCurrentTab() {
@@ -137,57 +145,112 @@ export async function renderExpensesPage(container) {
     renderCurrentTab();
   });
 
-  document.getElementById("expense-fab").addEventListener("click", () => openAddExpenseModal(member, state, async () => {
-    await loadEntries();
-    renderCurrentTab();
-  }));
+  document.getElementById("expense-fab").addEventListener("click", () =>
+    openAddExpenseModal(member, state, async () => {
+      await loadEntries();
+      renderCurrentTab();
+    })
+  );
 
   await loadEntries();
   renderCurrentTab();
 }
 
+/** 價格歷史明細：按月平均擺前面（比較貼近「這個月跟上個月比」的需求），下面附全部原始記錄 */
+function openPriceHistoryModal(group) {
+  const overlay = document.createElement("div");
+  overlay.className = "picker-overlay";
+  const monthly = computeMonthlyAverages(group.entries);
+
+  overlay.innerHTML = `
+    <div class="picker-box notif-panel-box">
+      <button type="button" class="dialog-close picker-close" aria-label="關閉">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+      <div class="sheet-title">${group.ingredientName}／${group.unit || "無單位"} 價格歷史</div>
+
+      <div class="expense-history-section-label">按月平均</div>
+      <div class="expense-monthly-list">
+        ${monthly
+          .map(
+            (m) => `
+          <div class="expense-monthly-row">
+            <span>${monthLabel(m.month)}</span>
+            <span class="expense-monthly-val">$${m.avg.toFixed(0)}<span class="expense-monthly-count">（${m.count} 筆）</span></span>
+          </div>`
+          )
+          .join("")}
+      </div>
+
+      <div class="expense-history-section-label" style="margin-top:14px">全部記錄</div>
+      <div class="expense-monthly-list">
+        ${group.entries
+          .slice()
+          .reverse()
+          .map((e) => `<div class="expense-monthly-row"><span>${e.date}${e.location ? ` ・ ${e.location}` : ""}</span><span class="expense-monthly-val">$${e.price}</span></div>`)
+          .join("")}
+      </div>
+    </div>
+  `;
+  overlay.querySelector(".picker-close").addEventListener("click", () => overlay.remove());
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) overlay.remove();
+  });
+  document.body.appendChild(overlay);
+}
+
+let _itemRowCount = 0;
+
+function itemRowHtml(index) {
+  return `
+    <div class="expense-item-row" data-row="${index}">
+      <div class="expense-item-row-fields">
+        <input type="text" class="expense-item-name" list="expense-name-suggestions" placeholder="食材名稱">
+        <input type="number" class="expense-item-price" min="0" step="1" placeholder="價格">
+        <input type="number" class="expense-item-qty" min="0" step="0.5" value="1" placeholder="數量">
+        <input type="text" class="expense-item-unit" list="expense-unit-suggestions" placeholder="單位">
+      </div>
+      <button type="button" class="expense-item-remove" data-row="${index}">${ICON_TRASH}</button>
+    </div>
+  `;
+}
+
+/** 新增花費：日期／地點填一次，下面可以一次加很多品項（一趟採買通常買一堆東西） */
 function openAddExpenseModal(member, state, onSaved) {
   const overlay = document.createElement("div");
   overlay.className = "picker-overlay";
+  _itemRowCount = 0;
+
   overlay.innerHTML = `
-    <div class="picker-box">
+    <div class="picker-box notif-panel-box">
       <button type="button" class="dialog-close picker-close" aria-label="關閉">
         <svg class="icon" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
       </button>
       <div class="sheet-title">新增花費記錄</div>
-      <div class="field">
-        <label for="expense-name-input">食材名稱</label>
-        <input type="text" id="expense-name-input" list="expense-name-suggestions" placeholder="例如：豆腐">
-        <datalist id="expense-name-suggestions">
-          ${[...new Set(state.entries.map((e) => e.ingredientName))].map((n) => `<option value="${n}">`).join("")}
-        </datalist>
-      </div>
+
       <div class="field" style="display:flex;gap:8px">
         <div style="flex:1">
-          <label for="expense-price-input">價格</label>
-          <input type="number" id="expense-price-input" min="0" step="1" placeholder="0">
+          <label for="expense-date-input">日期</label>
+          <input type="date" id="expense-date-input" value="${todayStr()}">
         </div>
         <div style="flex:1">
-          <label for="expense-qty-input">數量</label>
-          <input type="number" id="expense-qty-input" min="0" step="0.5" value="1">
-        </div>
-        <div style="flex:1">
-          <label for="expense-unit-input">單位</label>
-          <input type="text" id="expense-unit-input" list="expense-unit-suggestions" placeholder="盒">
-          <datalist id="expense-unit-suggestions">
-            ${EXPENSE_UNIT_SUGGESTIONS.map((u) => `<option value="${u}">`).join("")}
-          </datalist>
+          <label for="expense-location-input">地點（可空）</label>
+          <input type="text" id="expense-location-input" placeholder="例如：全聯">
         </div>
       </div>
-      <div class="field">
-        <label for="expense-date-input">日期</label>
-        <input type="date" id="expense-date-input" value="${todayStr()}">
-      </div>
-      <div class="field" style="margin-bottom:0">
-        <label for="expense-location-input">地點（可空）</label>
-        <input type="text" id="expense-location-input" placeholder="例如：全聯">
-      </div>
-      <button type="button" id="expense-save-btn" class="sheet-confirm" style="margin-top:14px">儲存</button>
+
+      <datalist id="expense-name-suggestions">
+        ${[...new Set(state.entries.map((e) => e.ingredientName))].map((n) => `<option value="${n}">`).join("")}
+      </datalist>
+      <datalist id="expense-unit-suggestions">
+        ${EXPENSE_UNIT_SUGGESTIONS.map((u) => `<option value="${u}">`).join("")}
+      </datalist>
+
+      <label class="form-hint" style="display:block;margin:10px 0 6px">品項（一次採買可以加好幾項）</label>
+      <div id="expense-item-rows"></div>
+      <button type="button" id="expense-add-row-btn" class="expense-add-row-btn">${ICON_PLUS}再加一項</button>
+
+      <button type="button" id="expense-save-btn" class="sheet-confirm" style="margin-top:14px">全部儲存</button>
     </div>
   `;
   overlay.querySelector(".picker-close").addEventListener("click", () => overlay.remove());
@@ -196,37 +259,67 @@ function openAddExpenseModal(member, state, onSaved) {
   });
   document.body.appendChild(overlay);
 
-  // 打同食材名稱時，自動帶入上次用過的單位，減少重複輸入
-  document.getElementById("expense-name-input").addEventListener("blur", (e) => {
-    const last = findLastEntryForName(state.entries, e.target.value);
-    const unitInput = document.getElementById("expense-unit-input");
-    if (last && !unitInput.value) unitInput.value = last.unit || "";
-  });
+  const rowsEl = document.getElementById("expense-item-rows");
+
+  function addRow() {
+    const index = _itemRowCount++;
+    rowsEl.insertAdjacentHTML("beforeend", itemRowHtml(index));
+    const row = rowsEl.querySelector(`.expense-item-row[data-row="${index}"]`);
+
+    row.querySelector(".expense-item-name").addEventListener("blur", (e) => {
+      const last = findLastEntryForName(state.entries, e.target.value);
+      const unitInput = row.querySelector(".expense-item-unit");
+      if (last && !unitInput.value) unitInput.value = last.unit || "";
+    });
+
+    row.querySelector(".expense-item-remove").addEventListener("click", () => {
+      if (rowsEl.children.length <= 1) {
+        showToast("至少要留一項");
+        return;
+      }
+      row.remove();
+    });
+  }
+
+  document.getElementById("expense-add-row-btn").addEventListener("click", addRow);
+  addRow(); // 預設先給一列
 
   document.getElementById("expense-save-btn").addEventListener("click", async () => {
-    const ingredientName = document.getElementById("expense-name-input").value.trim();
-    const price = document.getElementById("expense-price-input").value;
-    const quantity = document.getElementById("expense-qty-input").value;
-    const unit = document.getElementById("expense-unit-input").value.trim();
     const date = document.getElementById("expense-date-input").value;
     const location = document.getElementById("expense-location-input").value.trim();
 
-    if (!ingredientName) {
-      showToast("請填食材名稱");
+    const rows = [...rowsEl.querySelectorAll(".expense-item-row")];
+    const items = rows.map((row) => ({
+      ingredientName: row.querySelector(".expense-item-name").value.trim(),
+      price: row.querySelector(".expense-item-price").value,
+      quantity: row.querySelector(".expense-item-qty").value,
+      unit: row.querySelector(".expense-item-unit").value.trim(),
+    }));
+
+    const validItems = items.filter((it) => it.ingredientName || it.price);
+    if (validItems.length === 0) {
+      showToast("至少填一項食材");
       return;
     }
-    if (!price || Number(price) < 0) {
-      showToast("請填價格");
+    const bad = validItems.find((it) => !it.ingredientName || !it.price || Number(it.price) < 0);
+    if (bad) {
+      showToast("每一項都要填食材名稱跟價格");
       return;
     }
+
+    const saveBtn = document.getElementById("expense-save-btn");
+    saveBtn.disabled = true;
     try {
-      await createExpense(member.uid, { ingredientName, price, quantity, unit, date, location });
+      for (const item of validItems) {
+        await createExpense(member.uid, { ...item, date, location });
+      }
       overlay.remove();
-      showToast("已記錄");
+      showToast(`已記錄 ${validItems.length} 筆`);
       onSaved();
     } catch (err) {
       console.error(err);
       showToast("儲存失敗，請再試一次");
+      saveBtn.disabled = false;
     }
   });
 }
