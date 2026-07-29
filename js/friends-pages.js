@@ -402,19 +402,25 @@ export async function renderLeaderboardPage(container) {
           ${rows
             .map(
               (r, i) => `
-            <a href="#/friends/${r.uid}" class="leaderboard-row">
+            <div class="leaderboard-row">
               <div class="leaderboard-rank">${i + 1}</div>
-              ${avatarHtml(r, "leaderboard-avatar")}
-              <div class="leaderboard-info">
-                <div class="leaderboard-name">${r.displayName || "朋友"}</div>
-                <div class="leaderboard-tier">Lv.${r.tier} ${"★".repeat(r.star)}${"☆".repeat(3 - r.star)}</div>
-              </div>
-              <div class="leaderboard-count">${r.count}</div>
-            </a>`
+              <a href="#/friends/${r.uid}" class="leaderboard-person">
+                ${avatarHtml(r, "sm")}
+                <div class="leaderboard-info">
+                  <div class="leaderboard-name">${r.displayName || "朋友"}</div>
+                  <div class="leaderboard-tier">Lv.${r.tier} ${"★".repeat(r.star)}${"☆".repeat(3 - r.star)}</div>
+                </div>
+              </a>
+              <button type="button" class="leaderboard-count" data-uid="${r.uid}">${r.count}</button>
+            </div>`
             )
             .join("")}
         </div>
       `;
+
+      listEl.querySelectorAll(".leaderboard-count").forEach((btn) => {
+        btn.addEventListener("click", () => openLeaderboardDetail(key, btn.dataset.uid));
+      });
     } catch (err) {
       console.error(err);
       listEl.innerHTML = `<div class="empty-state">載入失敗，請稍後再試。</div>`;
@@ -429,4 +435,14 @@ export async function renderLeaderboardPage(container) {
   });
 
   loadTab(BADGE_CATEGORIES[0].key);
+}
+
+async function openLeaderboardDetail(key, uid) {
+  try {
+    const [member, stats, badges] = await Promise.all([getMemberById(uid), getMemberStats(uid), getUserBadgeSummary(uid)]);
+    await handleBadgeClick(key, { member, stats, badges });
+  } catch (err) {
+    console.error(err);
+    showToast("載入失敗，請再試一次");
+  }
 }
