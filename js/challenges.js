@@ -40,6 +40,9 @@ import {
 import { getDbInstance } from "./firebase-init.js";
 import { incrementBadgeCounter } from "./badges.js";
 import { createNotificationForAllMembers, createNotificationForAdmins, createNotification } from "./notifications.js";
+import { listMyDiaryEntries } from "./diary.js";
+import { listMyOwnRecipes } from "./recipes.js";
+import { getMemberById } from "./auth.js";
 
 const COLLECTION = "challenges";
 
@@ -53,15 +56,45 @@ function todayStr() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
+function toDateStrFromTimestamp(ts) {
+  const millis = toMillis(ts);
+  if (!millis) return null;
+  const d = new Date(millis);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function dateStrToEndOfDayMillis(dateStr) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(y, m - 1, d, 23, 59, 59, 999).getTime();
+}
 
-/** 管理員發布新挑戰，deadline 是 "YYYY-MM-DD"，verificationMode 是 'self' 或 'admin_review' */
-export async function createChallenge(title, description, deadline, verificationMode, createdBy) {
+export const CRITERION_TYPES = [
+  { value: "manual", label: "手動（自行標記或審核）", group: "一般" },
+  { value: "loginStreak", label: "連續登入幾天", group: "系統" },
+  { value: "diaryDays", label: "記錄幾天的日記（不同天數）", group: "系統" },
+  { value: "diaryMeals", label: "記錄幾餐的日記（次數）", group: "系統" },
+  { value: "recipeCount", label: "發布幾道食譜", group: "食譜" },
+  { value: "recipeStyleCount", label: "發布特定風格的食譜幾道", group: "食譜" },
+];
+
+/**
+ * 管理員發布新挑戰。
+ * criterionType 不是 'manual' 時，代表這是「自動判斷」挑戰：達標後不會直接
+ * 完成，而是自動送進「待審核」（跟手動提交審核走同一套機制），管理員核准
+ * 後才算數、才計入徽章——這是因為自動判斷邏輯有可能誤判，讓管理員把關。
+ * 這種情況下 verificationMode 一律當作 admin_review，畫面上不會再讓使用者
+ * 自己標記完成。
+ */
+export async function createChallenge(title, description, deadline, verificationMode, createdBy, criterionType = "manual", criterionTarget = null, criterionStyle = null) {
   const db = getDbInstance();
+  const isAuto = criterionType && criterionType !== "manual";
   const ref = await addDoc(collection(db, COLLECTION), {
     title,
     description: description || "",
     deadline,
-    verificationMode: verificationMode === "admin_review" ? "admin_review" : "self",
+    verificationMode: isAuto ? "admin_review" : verificationMode === "admin_review" ? "admin_review" : "self",
+    criterionType: criterionType || "manual",
+    criterionTarget: isAuto ? Number(criterionTarget) || 1 : null,
+    criterionStyle: criterionType === "recipeStyleCount" ? criterionStyle : null,
     createdBy,
     active: true,
     completedBy: [],
@@ -164,6 +197,19 @@ export async function autoExpireChallenges() {
   return expired.length;
 }
 
+/** 送進待審核（手動提交跟自動判斷達標都共用這個），回傳 'pending' 或 'already_pending' */
+async function submitForReview(ref, data, uid) {
+  const pendingReview = data.pendingReview || [];
+  if (pendingReview.includes(uid)) return "already_pending";
+  await updateDoc(ref, { pendingReview: [...pendingReview, uid] });
+  try {
+    await createNotificationForAdmins("challenge_review", "有挑戰待審核", `「${data.title}」有新的完成提交，等你審核`, "/challenge-admin");
+  } catch (err) {
+    console.error("建立待審核通知失敗", err);
+  }
+  return "pending";
+}
+
 /**
  * 成員標記自己完成這個挑戰。
  * verificationMode === 'self' → 立刻算完成、計入徽章
@@ -180,20 +226,78 @@ export async function markChallengeComplete(challengeId, uid) {
   if (completedBy.includes(uid)) return "already_done";
 
   if (data.verificationMode === "admin_review") {
-    const pendingReview = data.pendingReview || [];
-    if (pendingReview.includes(uid)) return "already_pending";
-    await updateDoc(ref, { pendingReview: [...pendingReview, uid] });
-    try {
-      await createNotificationForAdmins("challenge_review", "有挑戰待審核", `「${data.title}」有新的完成提交，等你審核`, "/challenge-admin");
-    } catch (err) {
-      console.error("建立待審核通知失敗", err);
-    }
-    return "pending";
+    return submitForReview(ref, data, uid);
   }
 
   await updateDoc(ref, { completedBy: [...completedBy, uid] });
   await incrementBadgeCounter(uid, "challenge");
   return "done";
+}
+
+/**
+ * 算某人在某個「自動判斷」挑戰裡目前的進度，回傳 {current, target}。
+ * manual 類型回傳 null（沒有進度可算）。
+ * 判斷範圍只看「挑戰建立之後、期限之前」發生的，不算挑戰開始前的舊資料。
+ */
+export async function computeChallengeProgress(challenge, uid) {
+  if (!challenge.criterionType || challenge.criterionType === "manual") return null;
+
+  const target = challenge.criterionTarget || 1;
+  const periodStartMillis = toMillis(challenge.createdAt);
+  const periodStartDateStr = toDateStrFromTimestamp(challenge.createdAt);
+  const periodEndMillis = dateStrToEndOfDayMillis(challenge.deadline);
+
+  if (challenge.criterionType === "loginStreak") {
+    // 連續登入天數看目前值就好（累計數的概念跟這裡不同，這裡要的是「連續」）
+    const member = await getMemberById(uid);
+    return { current: Math.min(member?.loginStreakCurrent || 0, target), target };
+  }
+
+  if (challenge.criterionType === "diaryDays" || challenge.criterionType === "diaryMeals") {
+    const entries = await listMyDiaryEntries(uid);
+    const inPeriod = entries.filter((e) => e.date && (!periodStartDateStr || e.date >= periodStartDateStr) && e.date <= challenge.deadline);
+    const current = challenge.criterionType === "diaryDays" ? new Set(inPeriod.map((e) => e.date)).size : inPeriod.length;
+    return { current: Math.min(current, target), target };
+  }
+
+  if (challenge.criterionType === "recipeCount" || challenge.criterionType === "recipeStyleCount") {
+    const recipes = await listMyOwnRecipes(uid);
+    const inPeriod = recipes.filter((r) => {
+      if (!r.isPublic) return false;
+      const millis = toMillis(r.createdAt);
+      return millis > 0 && millis >= periodStartMillis && millis <= periodEndMillis;
+    });
+    const filtered = challenge.criterionType === "recipeStyleCount" ? inPeriod.filter((r) => (r.styles || []).includes(challenge.criterionStyle)) : inPeriod;
+    return { current: Math.min(filtered.length, target), target };
+  }
+
+  return null;
+}
+
+/**
+ * 有人開 APP、登入成功時呼叫：全面檢查一次所有「自動判斷」的進行中挑戰，
+ * 達標的自動送進待審核（不會直接完成，管理員還是要核准一次，因為自動
+ * 判斷邏輯有可能誤判）。
+ */
+export async function checkAutoChallenges(uid) {
+  const active = await listActiveChallenges();
+  const autoOnes = active.filter((c) => c.criterionType && c.criterionType !== "manual");
+
+  for (const challenge of autoOnes) {
+    if ((challenge.completedBy || []).includes(uid) || (challenge.pendingReview || []).includes(uid)) continue;
+
+    try {
+      const progress = await computeChallengeProgress(challenge, uid);
+      if (progress && progress.current >= progress.target) {
+        const db = getDbInstance();
+        const ref = doc(db, COLLECTION, challenge.id);
+        const snap = await getDoc(ref);
+        if (snap.exists()) await submitForReview(ref, snap.data(), uid);
+      }
+    } catch (err) {
+      console.error(`自動判斷挑戰「${challenge.title}」檢查失敗`, err);
+    }
+  }
 }
 
 /** 管理員核准一筆待審核的完成提交，這時候才真的計入徽章 */

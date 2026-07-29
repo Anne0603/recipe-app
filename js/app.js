@@ -16,7 +16,7 @@ import { signInWithGoogle, signOutUser, resolveMember, watchAuthState, getCurren
 import { getAppSettings, saveAppSettings, isAppSettingsComplete } from "./app-settings.js";
 import { uploadRecipeImage } from "./recipe-images.js";
 import { renderRecipeListPage, renderRecipeDetailPage, renderRecipeFormPage, renderSearchPage } from "./recipe-pages.js";
-import { getTopPublicRecipes, getRecentPublicRecipes, listPublicRecipes } from "./recipes.js";
+import { getTopPublicRecipes, getRecentPublicRecipes, listPublicRecipes, getStyleCategories } from "./recipes.js";
 import { openLotteryFlow } from "./lottery.js";
 import { renderDiaryPage } from "./diary-pages.js";
 import { cleanupExpiredEntries } from "./diary.js";
@@ -25,9 +25,9 @@ import { getHomeWeatherDisplay } from "./weather.js";
 import { listMyNotifications, countUnread, markNotificationRead, markAllNotificationsRead } from "./notifications.js";
 import { requestAutoLocation, setManualCity, getWeatherMode } from "./location.js";
 import { renderFriendsListPage, renderMemberProfilePage, renderMemberRecipesPage } from "./friends-pages.js";
-import { getCurrentChallenge, markChallengeComplete, createChallenge, endChallenge, autoExpireChallenges, listActiveChallenges, listEndedChallenges, approveChallengeCompletion, rejectChallengeCompletion, listChallengesWithPendingReview, autoResolveStalePendingReviews } from "./challenges.js";
+import { getCurrentChallenge, markChallengeComplete, createChallenge, endChallenge, autoExpireChallenges, listActiveChallenges, listEndedChallenges, approveChallengeCompletion, rejectChallengeCompletion, listChallengesWithPendingReview, autoResolveStalePendingReviews, checkAutoChallenges, computeChallengeProgress, CRITERION_TYPES } from "./challenges.js";
 import { registerRoute, setBeforeEach, setOnRouteChange, startRouter, navigate } from "./router.js";
-import { showToast, showConfirm } from "./utils.js";
+import { showToast, showConfirm, openPickerSheet } from "./utils.js";
 
 let isLoggedIn = false;
 
@@ -511,6 +511,28 @@ function daysUntil(deadline) {
 }
 const ICON_CHECK_SM = '<svg class="icon icon-sm icon-solid" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>';
 
+/** 挑戰卡片右側要顯示什麼：已完成/審核中/進度條（自動判斷）/按鈕（手動） */
+function challengeStatusHtml(challenge, member, progress, btnClass) {
+  const done = (challenge.completedBy || []).includes(member?.uid);
+  const pending = (challenge.pendingReview || []).includes(member?.uid);
+  const needsReview = challenge.verificationMode === "admin_review";
+  const isAuto = challenge.criterionType && challenge.criterionType !== "manual";
+
+  if (done) return `<button type="button" class="challenge-status-btn done" disabled>${ICON_CHECK_SM}已完成</button>`;
+  if (pending) return `<button type="button" class="challenge-status-btn pending" disabled>審核中</button>`;
+
+  if (isAuto && progress) {
+    const pct = Math.min(100, Math.round((progress.current / progress.target) * 100));
+    return `
+      <div class="challenge-progress">
+        <div class="challenge-progress-bar"><div class="challenge-progress-fill" style="width:${pct}%"></div></div>
+        <div class="challenge-progress-label">${progress.current} / ${progress.target}</div>
+      </div>`;
+  }
+
+  return `<button type="button" class="challenge-status-btn ${btnClass}" data-id="${challenge.id}" data-title="${challenge.title}" data-review="${needsReview}">${needsReview ? "提交完成" : "標記完成"}</button>`;
+}
+
 async function loadHomeChallenge() {
   const el = document.getElementById("home-challenge");
   const countEl = document.getElementById("home-challenge-count");
@@ -537,17 +559,12 @@ async function loadHomeChallenge() {
     const done = (challenge.completedBy || []).includes(member?.uid);
     const pending = (challenge.pendingReview || []).includes(member?.uid);
     const needsReview = challenge.verificationMode === "admin_review";
+    const isAuto = challenge.criterionType && challenge.criterionType !== "manual";
     const daysLeft = daysUntil(challenge.deadline);
     const urgent = daysLeft != null && daysLeft <= 2;
 
-    let btnHtml;
-    if (done) {
-      btnHtml = `<button type="button" class="challenge-status-btn done" disabled>${ICON_CHECK_SM}已完成</button>`;
-    } else if (pending) {
-      btnHtml = `<button type="button" class="challenge-status-btn pending" disabled>審核中</button>`;
-    } else {
-      btnHtml = `<button type="button" id="home-challenge-btn" class="challenge-status-btn">${needsReview ? "提交完成" : "標記完成"}</button>`;
-    }
+    const progress = isAuto && !done && !pending ? await computeChallengeProgress(challenge, member?.uid) : null;
+    const btnHtml = challengeStatusHtml(challenge, member, progress, "home-challenge-btn");
 
     el.innerHTML = `
       <div class="challenge-card ${done ? "challenge-card-done" : ""}">
@@ -561,7 +578,7 @@ async function loadHomeChallenge() {
       </div>
     `;
 
-    const btn = document.getElementById("home-challenge-btn");
+    const btn = document.querySelector(".home-challenge-btn");
     if (btn) {
       btn.addEventListener("click", async () => {
         const ok = await showConfirm(
@@ -620,25 +637,23 @@ async function renderAllChallengesList() {
       return;
     }
 
-    listEl.innerHTML = challenges
-      .map((c) => {
+    const progresses = await Promise.all(
+      challenges.map((c) => {
+        const isAuto = c.criterionType && c.criterionType !== "manual";
         const done = (c.completedBy || []).includes(member?.uid);
         const pending = (c.pendingReview || []).includes(member?.uid);
-        const needsReview = c.verificationMode === "admin_review";
+        return isAuto && !done && !pending ? computeChallengeProgress(c, member?.uid) : Promise.resolve(null);
+      })
+    );
+
+    listEl.innerHTML = challenges
+      .map((c, i) => {
         const daysLeft = daysUntil(c.deadline);
         const urgent = daysLeft != null && daysLeft <= 2;
-
-        let btnHtml;
-        if (done) {
-          btnHtml = `<button type="button" class="challenge-status-btn done" disabled>${ICON_CHECK_SM}已完成</button>`;
-        } else if (pending) {
-          btnHtml = `<button type="button" class="challenge-status-btn pending" disabled>審核中</button>`;
-        } else {
-          btnHtml = `<button type="button" class="challenge-status-btn all-challenge-btn" data-id="${c.id}" data-title="${c.title}" data-review="${needsReview}">${needsReview ? "提交完成" : "標記完成"}</button>`;
-        }
+        const btnHtml = challengeStatusHtml(c, member, progresses[i], "all-challenge-btn");
 
         return `
-          <div class="challenge-admin-item ${done ? "challenge-card-done" : ""}">
+          <div class="challenge-admin-item ${(c.completedBy || []).includes(member?.uid) ? "challenge-card-done" : ""}">
             <div class="challenge-admin-item-title">${c.title}</div>
             ${c.description ? `<div class="challenge-admin-item-desc">${c.description}</div>` : ""}
             <div class="challenge-admin-item-meta">
@@ -790,18 +805,41 @@ async function renderChallengeAdminPage(container) {
           <label for="challenge-desc-input">說明（可空）</label>
           <textarea id="challenge-desc-input" placeholder="補充規則或提示"></textarea>
         </div>
-        <div class="field" style="margin-bottom:0">
+        <div class="field">
           <label for="challenge-deadline-input">期限（到這天為止，過了自動結束）</label>
           <input type="date" id="challenge-deadline-input" value="${defaultDeadline}">
         </div>
-        <div class="field" style="margin-bottom:0; margin-top:14px">
+
+        <div class="field">
+          <label>判斷方式</label>
+          <button type="button" id="challenge-criterion-btn" class="dropdown-field">
+            <span id="challenge-criterion-label">手動（自行標記或審核）</span>
+            <svg class="icon" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+        </div>
+
+        <div class="field hidden" id="challenge-target-field">
+          <label for="challenge-target-input">目標數字</label>
+          <input type="number" id="challenge-target-input" min="1" step="1" value="5">
+        </div>
+
+        <div class="field hidden" id="challenge-style-field">
+          <label>風格</label>
+          <button type="button" id="challenge-style-btn" class="dropdown-field">
+            <span id="challenge-style-label">請選擇風格</span>
+            <svg class="icon" viewBox="0 0 24 24"><path d="M6 9l6 6-6 6"/></svg>
+          </button>
+        </div>
+
+        <div class="field" style="margin-bottom:0" id="challenge-mode-field">
           <label>完成方式</label>
           <div class="segment segment-sm" id="challenge-mode-toggle">
             <button type="button" class="active" data-mode="self">自行標記</button>
             <button type="button" data-mode="admin_review">需要審核</button>
           </div>
-          <div class="form-hint" style="margin-top:6px">簡單、好判斷的挑戰選「自行標記」；需要看照片或證明的挑戰選「需要審核」，成員提交後你要在下面核准才算數。</div>
+          <div class="form-hint" style="margin-top:6px" id="challenge-mode-hint">簡單、好判斷的挑戰選「自行標記」；需要看照片或證明的挑戰選「需要審核」，成員提交後你要在下面核准才算數。</div>
         </div>
+
         <button type="button" id="challenge-create-btn" class="btn btn-primary" style="margin-top:12px;width:100%">發布新挑戰</button>
       </div>
     </div>
@@ -825,6 +863,9 @@ async function renderChallengeAdminPage(container) {
   document.getElementById("challenge-admin-back").addEventListener("click", () => navigate("/settings"));
 
   let selectedMode = "self";
+  let selectedCriterion = "manual";
+  let selectedStyle = null;
+
   document.querySelectorAll("#challenge-mode-toggle button").forEach((btn) => {
     btn.addEventListener("click", () => {
       selectedMode = btn.dataset.mode;
@@ -832,10 +873,50 @@ async function renderChallengeAdminPage(container) {
     });
   });
 
+  document.getElementById("challenge-criterion-btn").addEventListener("click", () => {
+    openPickerSheet({
+      title: "選擇判斷方式",
+      options: CRITERION_TYPES.map((c) => ({ value: c.value, label: `${c.label}${c.group !== "一般" ? `（${c.group}）` : ""}` })),
+      selected: [selectedCriterion],
+      multiple: false,
+      onConfirm: ([value]) => {
+        selectedCriterion = value;
+        const meta = CRITERION_TYPES.find((c) => c.value === value);
+        document.getElementById("challenge-criterion-label").textContent = meta?.label || "手動（自行標記或審核）";
+
+        const isAuto = value !== "manual";
+        document.getElementById("challenge-target-field").classList.toggle("hidden", !isAuto);
+        document.getElementById("challenge-style-field").classList.toggle("hidden", value !== "recipeStyleCount");
+        document.getElementById("challenge-mode-field").classList.toggle("hidden", isAuto);
+
+        if (isAuto) {
+          document.getElementById("challenge-mode-hint").textContent = "";
+        }
+      },
+    });
+  });
+
+  document.getElementById("challenge-style-btn").addEventListener("click", async () => {
+    const categories = await getStyleCategories();
+    openPickerSheet({
+      title: "選擇風格",
+      options: categories.map((s) => ({ value: s, label: s })),
+      selected: selectedStyle ? [selectedStyle] : [],
+      multiple: false,
+      requireConfirm: true,
+      onConfirm: ([value]) => {
+        selectedStyle = value;
+        document.getElementById("challenge-style-label").textContent = value;
+      },
+    });
+  });
+
   document.getElementById("challenge-create-btn").addEventListener("click", async () => {
     const title = document.getElementById("challenge-title-input").value.trim();
     const desc = document.getElementById("challenge-desc-input").value.trim();
     const deadline = document.getElementById("challenge-deadline-input").value;
+    const target = document.getElementById("challenge-target-input").value;
+
     if (!title) {
       showToast("請填挑戰標題");
       return;
@@ -844,8 +925,17 @@ async function renderChallengeAdminPage(container) {
       showToast("請選期限");
       return;
     }
+    if (selectedCriterion === "recipeStyleCount" && !selectedStyle) {
+      showToast("請選擇風格");
+      return;
+    }
+    if (selectedCriterion !== "manual" && (!target || Number(target) < 1)) {
+      showToast("請填目標數字");
+      return;
+    }
+
     try {
-      await createChallenge(title, desc, deadline, selectedMode, getCurrentMember()?.uid);
+      await createChallenge(title, desc, deadline, selectedMode, getCurrentMember()?.uid, selectedCriterion, target, selectedStyle);
       showToast("已發布新挑戰");
       document.getElementById("challenge-title-input").value = "";
       document.getElementById("challenge-desc-input").value = "";
@@ -1290,6 +1380,7 @@ async function boot() {
       cleanupExpiredEntries(getCurrentMember()?.uid).catch((err) => console.error("日記過期清理失敗", err));
       catchUpWeeklySummaries(getCurrentMember()?.uid).catch((err) => console.error("每週結算補算失敗", err));
       autoExpireChallenges().catch((err) => console.error("挑戰自動到期檢查失敗", err));
+      checkAutoChallenges(getCurrentMember()?.uid).catch((err) => console.error("自動判斷挑戰檢查失敗", err));
       autoResolveStalePendingReviews().catch((err) => console.error("挑戰待審核逾期檢查失敗", err));
       notifyAdminOfPendingReviews();
       if (window.location.hash === "#/login" || !window.location.hash) {

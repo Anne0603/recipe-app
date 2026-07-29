@@ -332,6 +332,11 @@
 .challenge-status-btn.pending { background: var(--color-butter-bg); color: var(--color-butter); cursor: default; }
 .challenge-status-btn .icon-sm { width: 12px; height: 12px; }
 
+.challenge-progress { flex-shrink: 0; width: 96px; }
+.challenge-progress-bar { width: 100%; height: 8px; border-radius: 999px; background: var(--color-border); overflow: hidden; }
+.challenge-progress-fill { height: 100%; background: var(--color-primary); border-radius: 999px; }
+.challenge-progress-label { font-size: 10.5px; color: var(--color-text-muted); text-align: right; margin-top: 3px; font-weight: 700; }
+
 @keyframes challenge-done-pop {
   0% { transform: scale(0.7); opacity: 0.4; }
   60% { transform: scale(1.12); }
