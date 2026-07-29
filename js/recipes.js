@@ -102,6 +102,10 @@ export async function setRecipeVisibility(recipeId, isPublic) {
   const recipe = await getRecipe(recipeId);
   if (!recipe) throw new Error("找不到這道食譜");
 
+  // 值根本沒變就直接跳過（例如編輯表單每次存檔都會呼叫這個函式，但沒動到公開/私人）
+  // 避免舊資料缺少 sharedForBadge 欄位時，被誤判成「第一次公開」而重複加分
+  if (recipe.isPublic === isPublic) return;
+
   const shouldCountBadge = isPublic && !recipe.sharedForBadge;
   const updates = { isPublic };
   if (shouldCountBadge) updates.sharedForBadge = true;

@@ -4,7 +4,7 @@
 
 import { listMembersForFriendsPage, getMemberStats } from "./friends.js";
 import { getUserBadgeSummary } from "./badges.js";
-import { getMemberById, getCurrentMember } from "./auth.js";
+import { getMemberById } from "./auth.js";
 import { listPublicRecipes } from "./recipes.js";
 import { listAllChallenges } from "./challenges.js";
 import { navigate } from "./router.js";
@@ -113,8 +113,7 @@ export async function renderMemberProfilePage(container, params) {
       <div class="badge-grid">
         ${badges
           .map((b) => {
-            const isOwnProfile = member.uid === getCurrentMember()?.uid;
-            const clickable = b.key !== "cooking" || isOwnProfile;
+            const clickable = true;
             return `
           <div class="badge-card ${b.tier === 0 ? "badge-card-empty" : ""} ${clickable ? "badge-card-clickable" : ""}" data-key="${b.key}">
             <div class="badge-card-icon">${b.icon}</div>
@@ -263,6 +262,61 @@ async function handleBadgeClick(key, { member, stats, badges }) {
   }
 
   if (key === "cooking") {
-    navigate("/diary");
+    navigate(`/friends/${member.uid}/recipes`);
   }
+}
+
+/* ==========================================================
+   成員的公開食譜（#/friends/:uid/recipes）
+   ----------------------------------------------------------
+   點「料理」徽章進來，自己、別人的頁面都能點。
+   列出這個人全部的公開食譜，可以用菜名/標籤搜尋。
+   ========================================================== */
+export async function renderMemberRecipesPage(container, params) {
+  const member = await getMemberById(params.uid);
+
+  container.innerHTML = `
+    <div class="page-head">
+      <button id="member-recipes-back" class="back-btn"><svg class="icon" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+      <h1>${member?.displayName || "朋友"}的食譜</h1>
+    </div>
+    <div class="search-input-row">
+      <svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      <input type="text" id="member-recipes-search" placeholder="搜尋菜名、標籤...">
+    </div>
+    <div id="member-recipes-grid"><div class="empty-state">載入中…</div></div>
+  `;
+
+  document.getElementById("member-recipes-back").addEventListener("click", () => navigate(`/friends/${params.uid}`));
+
+  let all = [];
+  try {
+    const pub = await listPublicRecipes({});
+    all = pub.filter((r) => r.ownerId === params.uid);
+  } catch (err) {
+    console.error(err);
+    document.getElementById("member-recipes-grid").innerHTML = `<div class="empty-state">載入失敗，請稍後再試。</div>`;
+    return;
+  }
+
+  function render(keyword) {
+    const gridEl = document.getElementById("member-recipes-grid");
+    const q = keyword.trim().toLowerCase();
+    const filtered = q
+      ? all.filter((r) => {
+          const name = (r.name || "").toLowerCase();
+          const tags = (r.tags || []).map((t) => (t || "").toLowerCase());
+          return name.includes(q) || tags.some((t) => t.includes(q));
+        })
+      : all;
+
+    if (filtered.length === 0) {
+      gridEl.innerHTML = `<div class="empty-state">${q ? "找不到符合的食譜，換個關鍵字試試？" : "還沒有公開食譜。"}</div>`;
+      return;
+    }
+    gridEl.innerHTML = `<div class="recipe-grid">${filtered.map(recipeCardHtml).join("")}</div>`;
+  }
+
+  render("");
+  document.getElementById("member-recipes-search").addEventListener("input", (e) => render(e.target.value));
 }

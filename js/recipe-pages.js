@@ -95,7 +95,7 @@ async function openLikersModal(uids) {
     .join("");
 }
 
-function recipeCardHtml(recipe) {
+export function recipeCardHtml(recipe) {
   const styleTags = (recipe.styles || []).slice(0, 2).map((s) => `<span>${s}</span>`).join("");
   return `
     <a href="#/recipes/${recipe.id}" class="recipe-card">
@@ -299,7 +299,7 @@ export async function renderRecipeDetailPage(container, params) {
       <div class="detail-title">${recipe.name}</div>
       ${
         recipe.isPublic
-          ? `<div class="detail-owner">${avatarHtml(owner, "avatar")}${owner?.displayName || "朋友"} 分享</div>`
+          ? `<a href="#/friends/${recipe.ownerId}" class="detail-owner detail-owner-link">${avatarHtml(owner, "avatar")}${owner?.displayName || "朋友"} 分享</a>`
           : `<div class="detail-owner">私人食譜</div>`
       }
       <div class="detail-tags">${(recipe.styles || []).map((s) => `<span>${s}</span>`).join("")}</div>
