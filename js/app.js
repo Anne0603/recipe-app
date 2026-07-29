@@ -138,6 +138,9 @@ async function renderHomePage(container) {
       <div class="home-header-top">
         <div class="hello">${greeting}，<span>${name}</span></div>
         <div class="home-header-right">
+          <a href="#/friends" class="notif-bell-btn" aria-label="朋友">
+            ${ICON_FRIENDS_SM}
+          </a>
           <button id="notif-bell-btn" class="notif-bell-btn" aria-label="通知">
             ${ICON_BELL}
             <span id="notif-unread-badge" class="notif-unread-badge hidden"></span>
@@ -1273,17 +1276,6 @@ function renderSettingsPage(container) {
           <div class="settings-link-desc">畫面看起來卡卡的、或功能好像沒更新時按這個</div>
         </div>
       </button>
-    </div>
-
-    <div class="settings-group">
-      <a href="#/friends" class="settings-link-card">
-        <div class="settings-link-icon">${ICON_FRIENDS_SM}</div>
-        <div class="settings-link-text">
-          <div class="settings-link-title">朋友</div>
-          <div class="settings-link-desc">看看大家最近在煮什麼、排行榜</div>
-        </div>
-        <svg class="icon settings-link-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
-      </a>
     </div>
 
     <div class="settings-group">
