@@ -37,17 +37,33 @@ function formatJoinedDate(ts) {
   return `${d.getFullYear()} 年 ${d.getMonth() + 1} 月加入`;
 }
 
+/** 上次上線多久前（跟 Beebo 那種「最後上線」提示一樣的概念） */
+function lastSeenLabel(ts) {
+  const millis = ts && typeof ts.toMillis === "function" ? ts.toMillis() : ts?.seconds ? ts.seconds * 1000 : 0;
+  if (!millis) return "";
+  const diffMin = Math.floor((Date.now() - millis) / 60000);
+  if (diffMin < 5) return "剛剛上線";
+  if (diffMin < 60) return `${diffMin} 分鐘前上線`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr} 小時前上線`;
+  const diffDay = Math.floor(diffHr / 24);
+  if (diffDay < 30) return `${diffDay} 天前上線`;
+  return "很久沒上線了";
+}
+
 /* ==========================================================
    成員列表（#/friends）
    ========================================================== */
 export async function renderFriendsListPage(container) {
   container.innerHTML = `
     <div class="page-head">
+      <button id="friends-list-back" class="back-btn"><svg class="icon" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
       <h1>朋友</h1>
       <a href="#/leaderboard" class="more">${ICON_TROPHY_SM}排行榜</a>
     </div>
     <div id="friends-list-body"><div class="loading-screen"><p>載入中…</p></div></div>
   `;
+  document.getElementById("friends-list-back").addEventListener("click", () => window.history.back());
 
   try {
     const members = await listMembersForFriendsPage();
@@ -69,6 +85,7 @@ export async function renderFriendsListPage(container) {
               <div class="friend-row-name">${m.displayName || "朋友"}</div>
               <div class="friend-row-sub">${m.bio || (m.lastActiveAt ? "最近有新分享" : formatJoinedDate(m.joinedAt) || "成員")}</div>
             </div>
+            <div class="friend-row-lastseen">${lastSeenLabel(m.lastLoginAt)}</div>
             ${ICON_CHEV_RIGHT}
           </a>`
           )
@@ -106,7 +123,7 @@ export async function renderMemberProfilePage(container, params) {
       <div class="friend-profile-head-text">
         <div class="friend-profile-name">${member.displayName || "朋友"}</div>
         ${member.bio ? `<div class="friend-profile-bio">${member.bio}</div>` : ""}
-        <div class="friend-profile-joined">${formatJoinedDate(member.joinedAt)}</div>
+        <div class="friend-profile-joined">${formatJoinedDate(member.joinedAt)}${member.lastLoginAt ? ` · ${lastSeenLabel(member.lastLoginAt)}` : ""}</div>
       </div>
     </div>
 

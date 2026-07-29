@@ -25,6 +25,7 @@ import { getHomeWeatherDisplay } from "./weather.js";
 import { listMyNotifications, countUnread, markNotificationRead, markAllNotificationsRead } from "./notifications.js";
 import { requestAutoLocation, setManualCity, getWeatherMode } from "./location.js";
 import { renderFriendsListPage, renderMemberProfilePage, renderMemberRecipesPage, renderLeaderboardPage } from "./friends-pages.js";
+import { renderExpensesPage } from "./expense-pages.js";
 import { getCurrentChallenge, markChallengeComplete, createChallenge, editChallenge, endChallenge, autoExpireChallenges, listActiveChallenges, listEndedChallenges, approveChallengeCompletion, rejectChallengeCompletion, listChallengesWithPendingReview, autoResolveStalePendingReviews, checkAutoChallenges, computeChallengeProgress, CRITERION_TYPES } from "./challenges.js";
 import { registerRoute, setBeforeEach, setOnRouteChange, startRouter, navigate } from "./router.js";
 import { showToast, showConfirm, openPickerSheet } from "./utils.js";
@@ -42,6 +43,7 @@ const ICON_LOGOUT = '<svg class="icon" viewBox="0 0 24 24"><path d="M9 21H5a2 2 
 const ICON_CAMERA_SM = '<svg class="icon" viewBox="0 0 24 24" style="width:12px;height:12px"><rect x="3" y="6" width="18" height="14" rx="2"/><circle cx="12" cy="13" r="3.5"/><path d="M8 6l1.5-2h5L16 6"/></svg>';
 const ICON_EDIT_SM = '<svg class="icon" viewBox="0 0 24 24" style="width:15px;height:15px"><path d="M4 20h4L18 10l-4-4L4 16v4Z"/></svg>';
 const ICON_REFRESH = '<svg class="icon" viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 13.66-5.66M20 12a8 8 0 0 1-13.66 5.66"/><path d="M17 3v4h-4M7 21v-4h4"/></svg>';
+const ICON_FRIENDS_SM = '<svg class="icon" viewBox="0 0 24 24"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2 20c0-3.3 2.7-6 6-6s6 2.7 6 6M14 20c0-2.5 1.8-4.5 4-4.5s4 2 4 4.5"/></svg>';
 
 const THEME_OPTIONS = [
   { value: "terracotta", label: "陶土橘", swatch: "#D9773F" },
@@ -1274,6 +1276,17 @@ function renderSettingsPage(container) {
     </div>
 
     <div class="settings-group">
+      <a href="#/friends" class="settings-link-card">
+        <div class="settings-link-icon">${ICON_FRIENDS_SM}</div>
+        <div class="settings-link-text">
+          <div class="settings-link-title">朋友</div>
+          <div class="settings-link-desc">看看大家最近在煮什麼、排行榜</div>
+        </div>
+        <svg class="icon settings-link-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+      </a>
+    </div>
+
+    <div class="settings-group">
       <div class="settings-group-title">${ICON_PALETTE}外觀</div>
       <div class="settings-card">
         <div class="theme-swatch-row">
@@ -1434,8 +1447,9 @@ registerRoute("/search", renderSearchPage, { hideTabbar: true });
 registerRoute("/recipes/:id/edit", renderRecipeFormPage, { hideTabbar: true });
 registerRoute("/recipes/:id", renderRecipeDetailPage, { hideTabbar: true });
 registerRoute("/diary", renderDiaryPage);
+registerRoute("/expenses", renderExpensesPage);
 registerRoute("/expenses", renderPlaceholderPage("花費記錄"));
-registerRoute("/friends", renderFriendsListPage);
+registerRoute("/friends", renderFriendsListPage, { hideTabbar: true });
 registerRoute("/challenges", renderAllChallengesPage, { hideTabbar: true });
 registerRoute("/friends/:uid", renderMemberProfilePage, { hideTabbar: true });
 registerRoute("/friends/:uid/recipes", renderMemberRecipesPage, { hideTabbar: true });
