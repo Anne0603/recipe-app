@@ -28,6 +28,7 @@ import { navigate } from "./router.js";
 import { showToast, showConfirm, openPickerSheet, debounce } from "./utils.js";
 import { createComment, listCommentsForRecipe, deleteComment, toggleCommentLike } from "./comments.js";
 import { searchRecipes, TIME_FILTER_OPTIONS } from "./search.js";
+import { computeRecipeNutrition, DAILY_RECOMMENDED } from "./nutrition.js";
 
 /* ---------------------------------------------------------
    共用小圖示／小工具
@@ -44,6 +45,7 @@ const ICON_UP = '<svg class="icon" viewBox="0 0 24 24"><path d="M18 15l-6-6-6 6"
 const ICON_DOWN = '<svg class="icon" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>';
 const ICON_CLOCK = '<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
 const ICON_PERSON = '<svg class="icon" viewBox="0 0 24 24"><circle cx="8" cy="9" r="3"/><path d="M2 20c0-3 2.5-5.5 6-5.5s6 2.5 6 5.5"/></svg>';
+const ICON_NUTRITION = '<svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 3v9h9"/></svg>';
 const ICON_CAMERA = '<svg class="icon" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="14" rx="2"/><circle cx="12" cy="13" r="3.5"/><path d="M8 6l1.5-2h5L16 6"/></svg>';
 const ICON_SEARCH = '<svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>';
 const ICON_FILTER = '<svg class="icon" viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4"/></svg>';
@@ -127,6 +129,64 @@ async function attachOwnerNames(recipes) {
     r.ownerPhotoURL = info.photoURL;
   }
   return recipes;
+}
+
+function openNutritionModal(recipe) {
+  const overlay = document.createElement("div");
+  overlay.className = "picker-overlay";
+
+  const result = computeRecipeNutrition(recipe.ingredients || [], recipe.servings || 1);
+
+  if (!result.hasAnyData) {
+    overlay.innerHTML = `
+      <div class="picker-box">
+        <button type="button" class="dialog-close picker-close" aria-label="關閉">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+        <div class="sheet-title">營養資訊</div>
+        <p class="form-hint">這道食譜的食材沒有辦法對到營養資料庫（可能是用「顆/大匙」這種非重量單位記錄，或食材名稱資料庫沒收錄），沒有營養資訊可以顯示。</p>
+      </div>
+    `;
+  } else {
+    const p = result.perServing;
+    const rows = [
+      { key: "calories", label: "熱量", unit: "大卡" },
+      { key: "protein", label: "蛋白質", unit: "克" },
+      { key: "fat", label: "脂肪", unit: "克" },
+      { key: "carbs", label: "碳水化合物", unit: "克" },
+      { key: "fiber", label: "膳食纖維", unit: "克" },
+    ];
+    overlay.innerHTML = `
+      <div class="picker-box">
+        <button type="button" class="dialog-close picker-close" aria-label="關閉">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+        <div class="sheet-title">每人份營養資訊</div>
+        <div class="nutrition-rows">
+          ${rows
+            .map((r) => {
+              const pct = Math.min(100, Math.round((p[r.key] / DAILY_RECOMMENDED[r.key]) * 100));
+              return `
+              <div class="nutrition-row">
+                <div class="nutrition-row-top">
+                  <span>${r.label}</span>
+                  <span><strong>${p[r.key]}</strong> ${r.unit}<span class="nutrition-row-pct"> ・每日建議量 ${pct}%</span></span>
+                </div>
+                <div class="nutrition-bar"><div class="nutrition-bar-fill" style="width:${pct}%"></div></div>
+              </div>`;
+            })
+            .join("")}
+        </div>
+        <p class="form-hint" style="margin-top:10px">僅供參考，以一般成人為基準${result.hasPartialData ? "；部分食材無資料，僅供參考" : ""}</p>
+      </div>
+    `;
+  }
+
+  overlay.querySelector(".picker-close").addEventListener("click", () => overlay.remove());
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) overlay.remove();
+  });
+  document.body.appendChild(overlay);
 }
 
 /* ==========================================================
@@ -307,7 +367,14 @@ export async function renderRecipeDetailPage(container, params) {
       <div class="detail-tags">${(recipe.styles || []).map((s) => `<span>${s}</span>`).join("")}</div>
 
       <div class="meta-row">
-        <div class="meta-pill">${ICON_PERSON}<div class="meta-val">${recipe.servings ?? "－"} 人份</div><div class="meta-label">份量</div></div>
+        <div class="meta-pill servings-stepper-pill">
+          <div class="servings-stepper">
+            <button type="button" id="servings-minus" class="servings-step-btn">－</button>
+            <div class="meta-val" id="servings-val">${recipe.servings ?? "－"} 人份</div>
+            <button type="button" id="servings-plus" class="servings-step-btn">＋</button>
+          </div>
+          <div class="meta-label">份量（可調整）</div>
+        </div>
         <div class="meta-pill">${ICON_CLOCK}<div class="meta-val">${recipe.cookTimeMinutes ?? "－"} 分鐘</div><div class="meta-label">料理時間</div></div>
         ${
           recipe.isPublic
@@ -315,6 +382,8 @@ export async function renderRecipeDetailPage(container, params) {
             : ""
         }
       </div>
+
+      <button type="button" id="nutrition-btn" class="nutrition-trigger-btn">${ICON_NUTRITION}營養資訊</button>
 
       ${
         isOwner
@@ -328,9 +397,14 @@ export async function renderRecipeDetailPage(container, params) {
 
       <div class="detail-section">
         <h3>${ICON_BOWL}食材</h3>
-        ${(recipe.ingredients || [])
-          .map((ing) => `<div class="ingredient-row"><span>${ing.name}</span><span class="amt">${ing.amount || ""} ${ing.unit || ""}</span></div>`)
-          .join("") || '<p class="form-hint">還沒有填食材</p>'}
+        <div id="ingredient-list">
+          ${(recipe.ingredients || [])
+            .map(
+              (ing, i) =>
+                `<div class="ingredient-row"><span>${ing.name}</span><span class="amt" id="ing-amt-${i}" data-amount="${ing.amount || ""}" data-unit="${ing.unit || ""}">${ing.amount || ""} ${ing.unit || ""}</span></div>`
+            )
+            .join("") || '<p class="form-hint">還沒有填食材</p>'}
+        </div>
       </div>
 
       <div class="detail-section">
@@ -364,6 +438,59 @@ export async function renderRecipeDetailPage(container, params) {
   `;
 
   document.getElementById("detail-back").addEventListener("click", () => navigate("/recipes"));
+
+  // 13｜份量換算：即時換算食材數字，離開頁面（重新渲染）就還原，不會存檔
+  const originalServings = recipe.servings || 1;
+  let viewServings = originalServings;
+
+  const COUNT_UNITS = ["顆", "片", "根", "條", "把"];
+  const VAGUE_UNITS = ["碗", "杯"];
+
+  function scaleIngredientDisplay() {
+    const factor = viewServings / originalServings;
+    document.querySelectorAll("#ingredient-list .amt").forEach((el) => {
+      const baseAmount = parseFloat(el.dataset.amount);
+      const unit = el.dataset.unit;
+      if (!baseAmount || !unit || unit === "適量") return; // 沒填數字或「適量」不換算
+
+      const scaled = baseAmount * factor;
+      let text;
+      if (COUNT_UNITS.includes(unit)) {
+        text = `約${Math.round(scaled)} ${unit}`;
+      } else if (VAGUE_UNITS.includes(unit)) {
+        text = `${Math.round(scaled)} ${unit}`;
+      } else {
+        text = `${Math.round(scaled * 10) / 10} ${unit}`;
+      }
+      el.textContent = text;
+    });
+  }
+
+  function updateServingsDisplay() {
+    document.getElementById("servings-val").textContent = `${viewServings} 人份`;
+    scaleIngredientDisplay();
+  }
+
+  const minusBtn = document.getElementById("servings-minus");
+  const plusBtn = document.getElementById("servings-plus");
+  if (minusBtn && plusBtn) {
+    minusBtn.addEventListener("click", () => {
+      if (viewServings <= 0.5) return;
+      viewServings = Math.round((viewServings - 0.5) * 10) / 10;
+      updateServingsDisplay();
+    });
+    plusBtn.addEventListener("click", () => {
+      viewServings = Math.round((viewServings + 0.5) * 10) / 10;
+      updateServingsDisplay();
+    });
+  }
+
+  // 14｜營養計算：每人份的營養數字是固定的（份量調整是整份一起放大縮小，每人份營養不會變），
+  // 所以直接用食譜原本存的食材清單／預設人份去算，不用管目前調整框顯示到第幾人份
+  const nutritionBtn = document.getElementById("nutrition-btn");
+  if (nutritionBtn) {
+    nutritionBtn.addEventListener("click", () => openNutritionModal(recipe));
+  }
 
   const likersBtn = document.getElementById("detail-likers-btn");
   if (likersBtn) {
